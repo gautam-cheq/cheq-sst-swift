@@ -1,22 +1,36 @@
-//
-//  SimpleSwiftUIApp.swift
-//  SimpleSwiftUI
-//
-//  Created by Gautam Amin on 7/24/24.
-//
-
 import SwiftUI
 import Cheq
 
 @main
 struct SimpleSwiftUIApp: App {
+    init() {
+        Task {
+            await SST.configure(client: "di_demo",
+                                publishPath: "sst",
+                                models: try! Models(Static()),
+                                debug: true)
+            await SST.trackEvent(name: "launch",
+                                 data: ["card": PlayingCard(rank: Rank.ace, suit: Suit.spades), "now": Date()])
+        }
+    }
     var body: some Scene {
         WindowGroup {
-            ContentView().task {
-                await SST.configure(client: "di_demo", publishPath: "sst", debug: true)
-                await SST.trackEvent(eventName: "launch", data: ["hello": "world", "card": PlayingCard(rank: Rank.ace, suit: Suit.spades), "date": Date()])
-            }
+            ContentView()
         }
+    }
+}
+
+class Static : Model {
+    var card: PlayingCard?
+    
+    override var key: String {
+        "static"
+    }
+    override func get(event: TrackEvent, sst: SST) async -> Any {
+        if card == nil {
+            card = PlayingCard(rank: Rank.eight, suit: Suit.diamonds)
+        }
+        return card!
     }
 }
 
