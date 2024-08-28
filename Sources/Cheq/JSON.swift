@@ -9,7 +9,7 @@ enum JSON {
     
     static func convertToJSONString(_ dictionary: [String: Any]) throws -> String {
         let jsonObject = sanitizeForJSON(dictionary)
-        let jsonData = try JSONSerialization.data(withJSONObject: jsonObject)
+        let jsonData = try JSONSerialization.data(withJSONObject: jsonObject, options: .sortedKeys)
         return String(data: jsonData, encoding: .utf8) ?? "{}"
     }
     
@@ -29,12 +29,12 @@ enum JSON {
     
     static internal func sanitizeForJSON(_ value: Any) -> Any {
         switch value {
+        case let bool as Bool:
+            return bool
         case let number as NSNumber:
             return number
         case let string as String:
             return string
-        case let bool as Bool:
-            return bool
         case let array as [Any]:
             return array.map { sanitizeForJSON($0) }
         case let dictionary as [String: Any]:
@@ -56,12 +56,8 @@ enum JSON {
         let mirror = Mirror(reflecting: value)
         switch mirror.displayStyle {
         case.optional:
-            if mirror.children.isEmpty {
-                return NSNull()
-            } else {
-                return String(describing: value)
-            }
-        case .struct, .class:
+            return NSNull()
+        case .struct, .class, .tuple:
             var dict = [String: Any]()
             for (label, value) in mirror.children {
                 if let label = label {
@@ -76,18 +72,9 @@ enum JSON {
             } else {
                 // For enums with associated values
                 var dict = [String: Any]()
-                dict["case"] = mirror.children.first?.label ?? String(describing: value)
-                if mirror.children.count == 1, let (_, associatedValue) = mirror.children.first {
-                    dict["associatedValue"] = sanitizeForJSON(associatedValue)
-                } else if mirror.children.count > 1 {
-                    var associatedValues = [String: Any]()
-                    for (label, value) in mirror.children {
-                        if let label = label {
-                            associatedValues[label] = sanitizeForJSON(value)
-                        }
-                    }
-                    dict["associatedValues"] = associatedValues
-                }
+                let key = mirror.children.first?.label ?? String(describing: value)
+                let (_, associatedValue) = mirror.children.first!
+                dict[key] = sanitizeForJSON(associatedValue)
                 return dict
             }
         default:

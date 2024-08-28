@@ -5,12 +5,12 @@ import Cheq
 struct SimpleSwiftUIApp: App {
     init() {
         Task {
-            await SST.configure(client: "di_demo",
+            await SST.configure(SSTConfig(client: "di_demo",
                                 publishPath: "sst",
-                                models: try! Models(Static()),
-                                debug: true)
-            await SST.trackEvent(name: "launch",
-                                 data: ["card": PlayingCard(rank: Rank.ace, suit: Suit.spades), "now": Date()])
+                                models: try! Models(Static(), CheqAdvertisingModel()),
+                                debug: true))
+            await SST.trackEvent(TrackEvent(name: "launch",
+                                 data: ["card": PlayingCard(rank: Rank.ace, suit: Suit.spades), "now": Date()]))
         }
     }
     var body: some Scene {

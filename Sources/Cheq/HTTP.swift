@@ -47,7 +47,7 @@ enum HTTP {
         }
     }
     
-    static func sendHttpPost(userAgent: String?, url: URL, jsonString: String, debug: Bool) async {
+    static func sendHttpPost(userAgent: String?, url: URL, jsonString: String, debug: Bool) async -> Int? {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         if let userAgent = userAgent {
@@ -62,13 +62,15 @@ enum HTTP {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
                 log.error("Invalid response")
-                return
+                return nil
             }
             if (debug) {
                 logResponse(response: httpResponse, responseData: data)
             }
+            return httpResponse.statusCode
         } catch {
             log.error("Error: \(error.localizedDescription, privacy: .public)")
+            return nil
         }
     }
 }

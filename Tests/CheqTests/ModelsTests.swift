@@ -13,7 +13,7 @@ final class ModelsTests: XCTestCase {
     
     func testCollect() async throws {
         let models = try Models(Foo())
-        await SST.configure(client: "ModelsTest")
+        await SST.configure(SSTConfig(client: "ModelsTest"))
         let result = await models.collect(event: TrackEvent(name: "test"), sst: SST.getInstance())
         XCTAssertNotNil(result["foo"])
         XCTAssertNotNil(result["app"])
@@ -36,7 +36,7 @@ final class ModelsTests: XCTestCase {
             XCTFail("invalid exception")
         }
     }
-
+    
     class Foo: Model {
         override var key: String { "foo" }
         override func get(event: TrackEvent, sst: SST) async -> Any {

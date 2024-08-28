@@ -41,10 +41,17 @@ public class Models {
     }
     
     func collect(event: TrackEvent, sst: SST) async -> [String: Any] {
-        let allModels = baseModelSet.getAll() + customModelSet.getAll()
         var result: [String: Any] = [:]
-        for model in allModels {
+        for model in getAll() {
             result[model.key] = await model.get(event: event, sst: sst)
+        }
+        return result
+    }
+    
+    func info() -> [String: String] {
+        var result: [String: String] = [:]
+        for model in customModelSet.getAll() {
+            result[model.key] = model.version
         }
         return result
     }
@@ -105,6 +112,10 @@ open class Model {
         }
     }
     
+    open var version: String {
+        get { "0.1" }
+    }
+    
     open func get(event: TrackEvent, sst: SST) async -> Any {
         fatalError("This method must be overridden")
     }
@@ -112,9 +123,7 @@ open class Model {
 
 class AppModel: Model {
     override var key: String {
-        get {
-            "app"
-        }
+        get { "app" }
     }
     
     override func get(event: TrackEvent, sst: SST) async -> Any {
@@ -124,23 +133,24 @@ class AppModel: Model {
 
 class DeviceModel: Model {
     override var key: String {
-        return "device"
+        get { "device" }
     }
     
     override func get(event: TrackEvent, sst: SST) async -> Any {
-        return Info.gatherDeviceData(instance: sst)
+        return Info.gatherDeviceData()
     }
 }
 
 class LibraryModel: Model {
     override var key: String {
-        return "library"
+        get { "library" }
     }
     
     override func get(event: TrackEvent, sst: SST) async -> Any {
         return [
             "name": "ios-swift",
-            "version": "0.1"
+            "version": "0.1",
+            "models": sst.models.info()
         ]
     }
 }
