@@ -63,7 +63,9 @@ public class SST {
             ],
             "events": [SSTEvent(name: event.name, data: event_data)],
             "virtualBrowser": SSTVirtualBrowser(height: screenInfo.height,
-                                                width: screenInfo.width)
+                                                width: screenInfo.width,
+                                                timezone: TimeZone.current.identifier,
+                                                language: Locale.preferredLanguages.joined(separator: ","))
         ]
         
         var jsonString: String?
@@ -107,7 +109,9 @@ public class SST {
     
     func getParams(params:[String: String]) -> [URLQueryItem] {
         let combinedParams = params.merging(SST.baseParams) { (_, new) in new }
-        return combinedParams.map { URLQueryItem(name: $0.key, value: $0.value) }
+        return combinedParams.keys.sorted().map { key in
+            URLQueryItem(name: key, value: combinedParams[key])
+        }
     }
     
     func getURL(params:[String: String] = [:]) -> URL {

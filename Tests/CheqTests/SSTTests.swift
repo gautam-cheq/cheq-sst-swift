@@ -16,7 +16,8 @@ final class SSTTests: XCTestCase {
     }
     
     func testTrackEvent() async throws {
-        await SST.configure(SSTConfig(client: "di_demo", domain: "test", debug: true, dateProvider: StaticDateProvider(fixedDate: Date(timeIntervalSince1970: 1337))))
+        let date = Date(timeIntervalSince1970: 1337)
+        await SST.configure(SSTConfig(client: "di_demo", domain: "test", dateProvider: StaticDateProvider(fixedDate: date)))
         let eventName = "testTrackEvent"
         let customData = CustomData(custom_data: [:],
                                     event_name: "PageView",event_id: "0b11049b2-8afc-4156-9b69-342c692309210",
@@ -34,25 +35,98 @@ final class SSTTests: XCTestCase {
             XCTFail("Failed to get valid response")
             return
         }
-        let expected = "{\"dataLayer\":{\"__mobileData\":{\"app\":{\"build\":\"22720\",\"name\":\"xctest\",\"namespace\":\"com\",\"version\":\"15.4\"},\"device\":{\"architecture\":\"arm64\",\"id\":\"9D8E2C4E-46F7-4B5C-80C8-79BEFD8C37F7\",\"manufacturer\":\"Apple\",\"model\":\"iPhone15,4\",\"os\":{\"name\":\"iOS\",\"version\":\"17.2\"},\"screen\":{\"height\":852,\"orientation\":\"Unknown\",\"width\":393}},\"library\":{\"models\":{},\"name\":\"ios-swift\",\"version\":\"0.1\"}}},\"events\":[{\"data\":{\"__timestamp\":1337000,\"customData\":{\"cards\":[{\"rank\":\"ace\",\"suit\":\"spades\"},{\"rank\":\"two\",\"suit\":\"hearts\"}],\"custom_data\":{},\"data_processing_options\":[\"LDU\"],\"data_processing_options_country\":0,\"data_processing_options_state\":0,\"event_id\":\"0b11049b2-8afc-4156-9b69-342c692309210\",\"event_name\":\"PageView\",\"nillable\":null,\"nsnull\":null,\"user_data\":{\"em\":\"142d78e466cacab37c3751a6ba0d288ce40db609ce9c49617ea6b24665f1aa9c\",\"fbp\":\"fb.2.1720426909889.614851977197247472\"}}},\"name\":\"testTrackEvent\"}],\"settings\":{\"nexusHost\":\"nexus.ensighten.com\",\"publishPath\":\"sst\"},\"virtualBrowser\":{\"height\":852,\"width\":393}}"
-        XCTAssertEqual(expected, result.requestBody, "invalid request body")
+        
+        let requestDict = decodeJSON(result.requestBody)
+        verifyRequest(requestDict, eventName: eventName, date: date)
     }
     
     
     func testCustomModel() async throws {
         let foo = Foo()
         let models = try Models(foo)
-        await SST.configure(SSTConfig(client: "di_demo", domain: "test", models: models, debug: true, dateProvider: StaticDateProvider(fixedDate: Date.init(timeIntervalSince1970: 2375623857))))
+        let date = Date(timeIntervalSince1970: 2375623857)
+        await SST.configure(SSTConfig(client: "di_demo", domain: "test", models: models, dateProvider: StaticDateProvider(fixedDate: date)))
         guard let result = await SST.trackEvent(TrackEvent(name: "testCustomModel")) else {
             XCTFail("Failed to get valid response")
             return
         }
-        print(result.requestBody)
-        let expected = "{\"dataLayer\":{\"__mobileData\":{\"app\":{\"build\":\"22720\",\"name\":\"xctest\",\"namespace\":\"com\",\"version\":\"15.4\"},\"device\":{\"architecture\":\"arm64\",\"id\":\"9D8E2C4E-46F7-4B5C-80C8-79BEFD8C37F7\",\"manufacturer\":\"Apple\",\"model\":\"iPhone15,4\",\"os\":{\"name\":\"iOS\",\"version\":\"17.2\"},\"screen\":{\"height\":852,\"orientation\":\"Unknown\",\"width\":393}},\"foo\":\"\",\"library\":{\"models\":{\"foo\":\"1.33.7\"},\"name\":\"ios-swift\",\"version\":\"0.1\"}}},\"events\":[{\"data\":{\"__timestamp\":2375623857000},\"name\":\"testCustomModel\"}],\"settings\":{\"nexusHost\":\"nexus.ensighten.com\",\"publishPath\":\"sst\"},\"virtualBrowser\":{\"height\":852,\"width\":393}}"
-        XCTAssertEqual(expected, result.requestBody, "invalid request body")
+        
+        let requestDict = decodeJSON(result.requestBody)
+        verifyRequest(requestDict, eventName: "testCustomModel", date: date)
+        let fooValue = ((requestDict["dataLayer"] as! [String: Any])["__mobileData"] as! [String: Any])["foo"] as! String
+        XCTAssertEqual("hello", fooValue)
+        let library = ((requestDict["dataLayer"] as! [String: Any])["__mobileData"] as! [String: Any])["library"] as! [String: Any]
+        let fooVersion = (library["models"] as! [String: Any])["foo"] as! String
+        XCTAssertEqual(foo.version, fooVersion, "invalid model version")
+        
     }
     
+    func testOverwriteTimestamp() async throws {
+        await SST.configure(SSTConfig(client: "test", domain: "test"))
+        guard let result = await SST.trackEvent(TrackEvent(name: "testOverwriteTimestamp", data: ["__timestamp": "foo"])) else {
+            XCTFail("Failed to get valid response")
+            return
+        }
+        let requestDict = decodeJSON(result.requestBody)
+        verifyRequest(requestDict, eventName: "testOverwriteTimestamp")
+        let timestamp = ((requestDict["events"] as! [[String: Any]])[0]["data"] as! [String: Any])["__timestamp"] as! String
+        XCTAssertEqual("foo", timestamp, "invalid overwritten timestamp")
+    }
     
+    func verifyRequest(_ requestDict:[String: Any], eventName: String, date: Date? = nil) {
+        let dataLayer = requestDict["dataLayer"] as! [String: Any]
+        XCTAssertNotNil(dataLayer, "missing dataLayer")
+        let mobileData = dataLayer["__mobileData"] as! [String: Any]
+        XCTAssertNotNil(mobileData, "missing dataLayer.__mobileData")
+        let app = mobileData["app"] as! [String: Any]
+        XCTAssertNotNil(app, "missing dataLayer.__mobileData.app")
+        XCTAssertNotNil(app["build"])
+        XCTAssertNotNil(app["name"])
+        XCTAssertNotNil(app["namespace"])
+        XCTAssertNotNil(app["version"])
+        let device = mobileData["device"] as! [String: Any]
+        XCTAssertNotNil(device, "missing dataLayer.__mobileData.device")
+        let screen = device["screen"] as! [String: Any]
+        XCTAssertNotNil(screen)
+        XCTAssertNotNil(screen["orientation"])
+        XCTAssertNotNil(screen["width"])
+        XCTAssertNotNil(screen["height"])
+        XCTAssertNotNil(device["id"])
+        XCTAssertNotNil(device["manufacturer"])
+        XCTAssertNotNil(device["architecture"])
+        XCTAssertNotNil(device["model"])
+        let os = device["os"] as! [String: Any]
+        XCTAssertNotNil(os)
+        XCTAssertNotNil(os["name"])
+        XCTAssertNotNil(os["version"])
+        let library = mobileData["library"] as! [String: Any]
+        XCTAssertNotNil(library, "missing dataLayer.__mobileData.library")
+        XCTAssertNotNil(library["name"])
+        XCTAssertNotNil(library["version"])
+        XCTAssertNotNil(library["models"])
+        
+        let events = requestDict["events"] as! [[String: Any]]
+        XCTAssertNotNil(events, "missing events")
+        XCTAssertEqual(1, events.count, "invalid event count")
+        let event = events[0]
+        XCTAssertEqual(eventName, event["name"] as! String, "invalid event name")
+        let eventData = event["data"] as! [String: Any]
+        if let date = date {
+            XCTAssertEqual(Int(date.timeIntervalSince1970 * 1000), eventData["__timestamp"] as! Int, "invalid __timestamp")
+        }
+        
+        let settings = requestDict["settings"] as! [String: Any]
+        XCTAssertNotNil(settings, "missing settings")
+        XCTAssertNotNil(settings["publishPath"])
+        XCTAssertNotNil(settings["nexusHost"])
+        
+        let virtualBrowser = requestDict["virtualBrowser"] as! [String: Any]
+        XCTAssertNotNil(virtualBrowser, "missing virtualBrowser")
+        XCTAssertNotNil(virtualBrowser["height"])
+        XCTAssertNotNil(virtualBrowser["width"])
+        XCTAssertNotNil(virtualBrowser["language"])
+        XCTAssertNotNil(virtualBrowser["timezone"])
+    }
     
     func decodeJSON(_ result: String) -> [String: Any] {
         if let jsonData = result.data(using: .utf8) {
@@ -103,7 +177,7 @@ final class SSTTests: XCTestCase {
             get { "1.33.7" }
         }
         override func get(event: TrackEvent, sst: SST) async -> Any {
-            return ""
+            return "hello"
         }
     }
 }

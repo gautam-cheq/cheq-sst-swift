@@ -46,6 +46,8 @@ public struct SSTConfig {
 struct SSTVirtualBrowser: Codable {
     let height: Int
     let width: Int
+    let timezone: String
+    let language: String
 }
 
 struct SSTSettings: Codable {
