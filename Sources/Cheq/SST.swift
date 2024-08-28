@@ -14,54 +14,44 @@ public class SST {
     let publishPath: String
     let debug: Bool
     let models: Models
+    let dateProvider: DateProvider
     let userAgent: String?
     
-    init(client: String, domain: String, nexusHost: String, publishPath: String, debug: Bool, models: Models, userAgent: String?) {
-        self.client = client
-        self.domain = domain
-        self.nexusHost = nexusHost
-        self.publishPath = publishPath
-        self.debug = debug
-        self.models = models
+    init(config: SSTConfig, userAgent: String?) {
+        self.client = config.client
+        self.domain = config.domain
+        self.nexusHost = config.nexusHost
+        self.publishPath = config.publishPath
+        self.debug = config.debug
+        self.models = config.models
+        self.dateProvider = config.dateProvider
         self.userAgent = userAgent
     }
     
-    public static func configure(client: String,
-                                 domain: String = "t.nc0.co",
-                                 nexusHost: String = "nexus.ensighten.com",
-                                 publishPath: String = "sst",
-                                 models: Models = try! Models(),
-                                 debug: Bool = false) async {
+    public static func configure(_ config: SSTConfig) async {
         
-        guard URL(string: "https://\(domain)/pc/\(client)/sst") != nil else {
+        guard URL(string: "https://\(config.domain)/pc/\(config.client)/sst") != nil else {
             log.error("Cheq SST not configured, invalid domain or client")
             return
         }
         
         let userAgent = await MainActor.run {
             let webView = WKWebView()
-            return webView.value(forKey: "userAgent") as! String
+            return webView.value(forKey: "userAgent") as? String
         }
         
-        instance = SST(client: client,
-                       domain: domain,
-                       nexusHost: nexusHost,
-                       publishPath: publishPath,
-                       debug: debug,
-                       models: models,
-                       userAgent: userAgent)
+        instance = SST(config: config, userAgent: userAgent)
         log.info("Cheq SST configured")
     }
     
-    public static func trackEvent(name: String, data: [String: Any] = [:], params: [String: String] = [:]) async {
-        let event = TrackEvent(name: name, data: data, params: params)
+    public static func trackEvent(_ event: TrackEvent) async -> TrackEventResult? {
         guard let instance = instance else {
             log.error("Not configured, must call configure first")
-            return
+            return nil
         }
-        var event_data = data
+        var event_data = event.data
         if !event_data.keys.contains("__timestamp") {
-            let timestamp = Int(Date().timeIntervalSince1970 * 1000)
+            let timestamp = Int(instance.dateProvider.now().timeIntervalSince1970 * 1000)
             event_data["__timestamp"] = timestamp
         }
         
@@ -71,8 +61,9 @@ public class SST {
             "dataLayer": [
                 "__mobileData": await instance.models.collect(event: event, sst: instance)
             ],
-            "events": [SSTEvent(name: name, data: event_data)],
-            "virtualBrowser": SSTVirtualBrowser(height: screenInfo.height, width: screenInfo.width)
+            "events": [SSTEvent(name: event.name, data: event_data)],
+            "virtualBrowser": SSTVirtualBrowser(height: screenInfo.height,
+                                                width: screenInfo.width)
         ]
         
         var jsonString: String?
@@ -80,9 +71,13 @@ public class SST {
             jsonString = try JSON.convertToJSONString(sstData)
         } catch {
             log.error("Failed to convert sstData: \(error.localizedDescription, privacy: .public)")
-            return
+            return nil
         }
-        await HTTP.sendHttpPost(userAgent: instance.userAgent, url: instance.getURL(params: params), jsonString: jsonString!, debug: instance.debug)
+        let statusCode = await HTTP.sendHttpPost(userAgent: instance.userAgent,
+                                                 url: instance.getURL(params: event.params),
+                                                 jsonString: jsonString!,
+                                                 debug: instance.debug)
+        return TrackEventResult(statusCode: statusCode, requestBody: jsonString!)
     }
     
     public static func getUUID() -> String? {

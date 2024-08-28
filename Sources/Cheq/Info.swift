@@ -42,7 +42,7 @@ enum Info {
         }
     }()
     
-    static func gatherDeviceData(instance: SST) -> [String: Any] {
+    static func gatherDeviceData() -> [String: Any] {
         let device = UIDevice.current
         
         return [

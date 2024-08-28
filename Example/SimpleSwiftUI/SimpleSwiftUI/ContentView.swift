@@ -1,11 +1,17 @@
 import SwiftUI
 import Cheq
+import AppTrackingTransparency
 
 struct ContentView: View {
     @State var uuidText = SST.getUUID() ?? "N/A"
     private var timer = Timer.publish(every: 0.3, on: .main, in: .common).autoconnect()
     var body: some View {
         VStack {
+            Button("Request Tracking Permission") {
+                Task {
+                    await ATTrackingManager.requestTrackingAuthorization()
+                }
+            }.padding()
             HStack {
                 Text("UUID: ").font(.footnote)
                 TextField("UUID", text: $uuidText).font(.footnote)
@@ -16,21 +22,21 @@ struct ContentView: View {
             }.padding()
             Button("Cart Event") {
                 Task {
-                    await SST.trackEvent(name: "cart event", 
-                                         data: ["price": "99.99"])
+                    await SST.trackEvent(TrackEvent(name: "cart event",
+                                         data: ["price": "99.99"]))
                 }
             }.padding()
             Button("Home Page") {
                 Task {
-                    await SST.trackEvent(name: "home page",
+                    await SST.trackEvent(TrackEvent(name: "home page",
                                          data: ["card": PlayingCard(rank: Rank.king, suit: Suit.diamonds)],
-                                         params: ["hello": "world"])
+                                         params: ["hello": "world"]))
                 }
             }.padding()
             Button("Login") {
                 Task {
-                    await SST.trackEvent(name: "login", 
-                                         data: ["user": ["name": "Test User", "username": "test", "id": 1337]])
+                    await SST.trackEvent(TrackEvent(name: "login",
+                                         data: ["user": ["name": "Test User", "username": "test", "id": 1337]]))
                 }
             }.padding()
         }
