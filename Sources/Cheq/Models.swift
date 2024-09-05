@@ -150,7 +150,7 @@ class LibraryModel: Model {
         return [
             "name": "ios-swift",
             "version": "0.1",
-            "models": sst.models.info()
+            "models": sst.config.models.info()
         ]
     }
 }

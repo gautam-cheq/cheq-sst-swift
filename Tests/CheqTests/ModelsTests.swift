@@ -37,10 +37,39 @@ final class ModelsTests: XCTestCase {
         }
     }
     
+    func testDuplicateModelDifferentKeys() {
+        do {
+            let _ = try Models(SubModel(key: "sub"), SubModel(key: "sub2"))
+            XCTFail("exception not thrown")
+        } catch(SSTError.duplicateModelKey(let message)) {
+            XCTAssertEqual(message, "Model SubModel already exists. Cannot add duplicate model class.")
+        } catch {
+            XCTFail("invalid exception")
+        }
+    }
+    
     class Foo: Model {
         override var key: String { "foo" }
         override func get(event: TrackEvent, sst: SST) async -> Any {
             return ["date": Date(), "int": Int.random(in: 1...100)]
+        }
+    }
+    
+    class SubModel: Model {
+        private var _key: String
+        
+        init(key: String) {
+            self._key = key
+            super.init()
+        }
+        
+        override var key: String {
+            get {
+                return _key
+            }
+            set {
+                _key = newValue
+            }
         }
     }
 }

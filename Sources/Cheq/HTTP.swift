@@ -3,8 +3,26 @@ import os
 
 enum HTTP {
     
+    static let storage = UserDefaults(suiteName: "cheq.sst.http")
+    
+    static var session:URLSession {
+        let config = URLSessionConfiguration.default
+        config.httpCookieStorage = nil
+        config.httpCookieAcceptPolicy = .never
+        let session = URLSession(configuration: config)
+        return session
+    }
+    
     static var log: Logger {
         return Logger(subsystem: "com.cheq", category: "HTTP")
+    }
+    
+    static func getUUID() -> String? {
+        return storage?.string(forKey: "uuid")
+    }
+    
+    static func clearUUID() {
+        storage?.removeObject(forKey: "uuid")
     }
     
     static func logRequest(request:URLRequest) {
@@ -12,7 +30,6 @@ enum HTTP {
         log.debug("--- REQUEST ---")
         log.debug("\tURL: \(request.url?.absoluteString ?? "N/A", privacy: .public)")
         log.debug("\tMethod: \(request.httpMethod ?? "N/A", privacy: .public)")
-        log.debug("\tUUID: \(SST.getUUID() ?? "N/A", privacy: .public)")
         
         // Log Request Headers
         log.debug("Request Headers:")
@@ -53,16 +70,22 @@ enum HTTP {
         if let userAgent = userAgent {
             request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         }
+        if let uuid = storage?.string(forKey: "uuid") {
+             request.setValue("uuid=\(uuid)", forHTTPHeaderField: "Cookie")
+        }
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = jsonString.data(using: .utf8)
         if (debug) {
             logRequest(request: request)
         }
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
                 log.error("Invalid response")
                 return nil
+            }
+            if let uuid = httpResponse.value(forHTTPHeaderField: "x-offsite-uuid") {
+                storage?.set(uuid, forKey: "uuid")
             }
             if (debug) {
                 logResponse(response: httpResponse, responseData: data)

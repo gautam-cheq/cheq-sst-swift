@@ -5,6 +5,13 @@ import Cheq
 struct SimpleSwiftUIApp: App {
     init() {
         Task {
+            // increment launch count
+            if var launchCount = SST.dataLayer.get("launchCount") as? Int {
+                launchCount += 1
+                SST.dataLayer.add(key: "launchCount", value: launchCount)
+            } else {
+                SST.dataLayer.add(key: "launchCount", value: 1)
+            }
             await SST.configure(SSTConfig(client: "di_demo",
                                 publishPath: "sst",
                                 models: try! Models(Static(), CheqAdvertisingModel()),
