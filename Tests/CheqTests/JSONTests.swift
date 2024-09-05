@@ -24,12 +24,12 @@ final class JSONTests: XCTestCase {
         var optDict: [String: Any?] = [:]
         optDict["testOpt"] = "value"
         optDict["testArr"] = ["zz", 99]
+        optDict["numbers"] = ["nan": Float.nan, "infinity": Float.infinity, "negative_infinity": Double.infinity * -1]
         let data: [String: Any] = ["hello":"world", "model": model, "optDict": optDict, "shape": Shape.square(length: 3, color: "blue")]
         
-        let expected = "{\"hello\":\"world\",\"model\":{\"arr\":[\"zero\",99],\"beverages\":[{\"coffee\":{\"size\":\"Large\",\"vol\":12}},{\"juice\":{\"flavor\":\"Orange\",\"isFresh\":false}}],\"bool\":true,\"color\":\"green\",\"data\":\"Zm9v\",\"date\":\"1970-01-01T00:22:17.123Z\",\"dict\":{\"dict_dict\":{\"a\":\"b\",\"c\":4},\"dict_str\":\"hello\"},\"empty_array\":[],\"empty_dict\":{},\"float\":1.3370000123977661,\"int\":1337,\"nillable\":null,\"nsnull\":null,\"person\":{\"id\":1337,\"name\":\"Test User\"},\"str\":\"test\"},\"optDict\":{\"testArr\":[\"zz\",99],\"testOpt\":\"value\"},\"shape\":{\"square\":{\"color\":\"blue\",\"length\":3}}}"
+        let expected = "{\"hello\":\"world\",\"model\":{\"arr\":[\"zero\",99],\"beverages\":[{\"coffee\":{\"size\":\"Large\",\"vol\":12}},{\"juice\":{\"flavor\":\"Orange\",\"isFresh\":false}}],\"bool\":true,\"color\":\"green\",\"data\":\"Zm9v\",\"date\":\"1970-01-01T00:22:17.123Z\",\"dict\":{\"dict_dict\":{\"a\":\"b\",\"c\":4},\"dict_str\":\"hello\"},\"empty_array\":[],\"empty_dict\":{},\"float\":1.3370000123977661,\"int\":1337,\"nillable\":null,\"nsnull\":null,\"person\":{\"id\":1337,\"name\":\"Test User\"},\"str\":\"test\"},\"optDict\":{\"numbers\":{\"infinity\":\"Infinity\",\"nan\":\"NaN\",\"negative_infinity\":\"-Infinity\"},\"testArr\":[\"zz\",99],\"testOpt\":\"value\"},\"shape\":{\"square\":{\"color\":\"blue\",\"length\":3}}}"
         
         let result = try JSON.convertToJSONString(data)
-        
         
         XCTAssertEqual(expected, result, "invalid json")
         if let jsonData = result.data(using: .utf8) {
@@ -42,6 +42,13 @@ final class JSONTests: XCTestCase {
                 XCTFail("Failed to decode JSON: \(error.localizedDescription)")
             }
         }
+    }
+    
+    func testBooleans() throws {
+        let expected = "{\"false\":false,\"true\":true}"
+        let result = try JSON.convertToJSONString(["true": true, "false": false])
+        
+        XCTAssertEqual(expected, result, "invalid json")
     }
     
     struct Model {

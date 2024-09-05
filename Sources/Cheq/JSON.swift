@@ -1,6 +1,12 @@
 import Foundation
 
 enum JSON {
+    static internal var encoder:JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "Infinity", negativeInfinity: "-Infinity", nan: "NaN")
+        return encoder
+    }
+    
     static internal var formatter:ISO8601DateFormatter {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
@@ -15,7 +21,6 @@ enum JSON {
     
     static internal func encodeEncodable(_ encodable: Encodable) -> Any {
         do {
-            let encoder = JSONEncoder()
             let data = try encoder.encode(encodable)
             if let jsonObject = try JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] {
                 return sanitizeForJSON(jsonObject)
@@ -28,10 +33,21 @@ enum JSON {
     }
     
     static internal func sanitizeForJSON(_ value: Any) -> Any {
+        let valueType = type(of: value)
+        if valueType == Bool.self {
+            return value as! Bool
+        }
+        
         switch value {
-        case let bool as Bool:
-            return bool
         case let number as NSNumber:
+            let doubleVal = number.doubleValue
+            if doubleVal.isNaN {
+                return "NaN"
+            } else if doubleVal.isInfinite && doubleVal < 0 {
+                return "-Infinity"
+            } else if doubleVal.isInfinite {
+                return "Infinity"
+            }
             return number
         case let string as String:
             return string

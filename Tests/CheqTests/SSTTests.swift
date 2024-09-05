@@ -2,6 +2,12 @@ import XCTest
 @testable import Cheq
 
 final class SSTTests: XCTestCase {
+    
+    override func setUp() async throws {
+        try await super.setUp()
+        SST.clearUUID()
+    }
+    
     func testConfigureInvalidDomain() async {
         await SST.configure(SSTConfig(client: "test", domain: "a b"))
     }
@@ -17,7 +23,7 @@ final class SSTTests: XCTestCase {
     
     func testTrackEvent() async throws {
         let date = Date(timeIntervalSince1970: 1337)
-        await SST.configure(SSTConfig(client: "di_demo", domain: "test", dateProvider: StaticDateProvider(fixedDate: date)))
+        await SST.configure(SSTConfig(client: "di_demo", domain: "echo.cheqai.workers.dev", debug: true, dateProvider: StaticDateProvider(fixedDate: date)))
         let eventName = "testTrackEvent"
         let customData = CustomData(custom_data: [:],
                                     event_name: "PageView",event_id: "0b11049b2-8afc-4156-9b69-342c692309210",
@@ -31,7 +37,7 @@ final class SSTTests: XCTestCase {
                                     cards: [PlayingCard(rank: Rank.ace, suit: Suit.spades), PlayingCard(rank: Rank.two, suit: Suit.hearts)],
                                     nillable: nil,
                                     nsnull: NSNull());
-        guard let result = await SST.trackEvent(TrackEvent(name: eventName, data: ["customData": customData], params: ["foo":"bar", "test foo": "true&1337 baz="])) else {
+        guard let result = await SST._trackEvent(TrackEvent(name: eventName, data: ["customData": customData], params: ["foo":"bar", "test foo": "true&1337 baz="])) else {
             XCTFail("Failed to get valid response")
             return
         }
@@ -46,7 +52,7 @@ final class SSTTests: XCTestCase {
         let models = try Models(foo)
         let date = Date(timeIntervalSince1970: 2375623857)
         await SST.configure(SSTConfig(client: "di_demo", domain: "test", models: models, dateProvider: StaticDateProvider(fixedDate: date)))
-        guard let result = await SST.trackEvent(TrackEvent(name: "testCustomModel")) else {
+        guard let result = await SST._trackEvent(TrackEvent(name: "testCustomModel")) else {
             XCTFail("Failed to get valid response")
             return
         }
@@ -63,7 +69,7 @@ final class SSTTests: XCTestCase {
     
     func testOverwriteTimestamp() async throws {
         await SST.configure(SSTConfig(client: "test", domain: "test"))
-        guard let result = await SST.trackEvent(TrackEvent(name: "testOverwriteTimestamp", data: ["__timestamp": "foo"])) else {
+        guard let result = await SST._trackEvent(TrackEvent(name: "testOverwriteTimestamp", data: ["__timestamp": "foo"])) else {
             XCTFail("Failed to get valid response")
             return
         }
@@ -71,6 +77,21 @@ final class SSTTests: XCTestCase {
         verifyRequest(requestDict, eventName: "testOverwriteTimestamp")
         let timestamp = ((requestDict["events"] as! [[String: Any]])[0]["data"] as! [String: Any])["__timestamp"] as! String
         XCTAssertEqual("foo", timestamp, "invalid overwritten timestamp")
+    }
+    
+    func testDataLayer() async throws {
+        SST.dataLayer.add(key: "card", value: PlayingCard(rank: Rank.queen, suit: Suit.hearts))
+        SST.dataLayer.add(key: "optedIn", value: false)
+        await SST.configure(SSTConfig(client: "test", dataLayerName: "DATA"))
+        guard let result = await SST._trackEvent(TrackEvent(name: "testDataLayer", data: ["__timestamp": "foo"])) else {
+            XCTFail("Failed to get valid response")
+            return
+        }
+        let requestDict = decodeJSON(result.requestBody)
+        verifyRequest(requestDict, eventName: "testDataLayer")
+        let DATADict = (requestDict["dataLayer"] as! [String: Any])["DATA"] as! [String: Any]
+        XCTAssertFalse(DATADict["optedIn"] as! Bool)
+        print(result.requestBody)
     }
     
     func verifyRequest(_ requestDict:[String: Any], eventName: String, date: Date? = nil) {

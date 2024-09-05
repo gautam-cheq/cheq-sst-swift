@@ -39,6 +39,17 @@ struct ContentView: View {
                                          data: ["user": ["name": "Test User", "username": "test", "id": 1337]]))
                 }
             }.padding()
+            Button("Clear URLSession Cookies") {
+                Task {
+                    if let cookies = HTTPCookieStorage.shared.cookies {
+                        for cookie in cookies {
+                            HTTPCookieStorage.shared.deleteCookie(cookie)
+                        }
+                    }
+                    
+                }
+            }.padding()
+            
         }
         .padding()
         .onReceive(timer) { _ in

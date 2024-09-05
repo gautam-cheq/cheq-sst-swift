@@ -12,7 +12,7 @@ public struct TrackEvent {
     }
 }
 
-public struct TrackEventResult: Codable {
+struct TrackEventResult: Codable {
     let statusCode: Int?
     let requestBody: String
 }
@@ -22,6 +22,7 @@ public struct SSTConfig {
     let domain: String
     let nexusHost: String
     let publishPath: String
+    let dataLayerName: String
     let models: Models
     let debug: Bool
     let dateProvider: DateProvider
@@ -30,6 +31,7 @@ public struct SSTConfig {
                 domain: String = "t.nc0.co",
                 nexusHost: String = "nexus.ensighten.com",
                 publishPath: String = "sst",
+                dataLayerName: String = "digitalData",
                 models: Models = try! Models(),
                 debug: Bool = false,
                 dateProvider: DateProvider = SystemDateProvider()) {
@@ -37,6 +39,7 @@ public struct SSTConfig {
         self.domain = domain
         self.nexusHost = nexusHost
         self.publishPath = publishPath
+        self.dataLayerName = dataLayerName
         self.models = models
         self.debug = debug
         self.dateProvider = dateProvider
@@ -100,4 +103,3 @@ class StaticDateProvider: DateProvider {
         return fixedDate
     }
 }
-
