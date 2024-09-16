@@ -2,77 +2,67 @@ import Foundation
 import os
 import WebKit
 
-public class SST {
-    static internal let log = Logger(subsystem: "com.cheq", category: "SST")
+/// Cheq Server-Side Tagging framework
+///
+/// Provides functionality for configuring Sst and tracking events
+public struct Sst {
+    static internal let log = Logger(subsystem: "Cheq", category: "Sst")
     static internal let baseParams: [String : String] = ["sstOrigin": "mobile", "sstVersion": "1.0.0"]
-    
-    static internal var instance:SST?
-    
-    let config:SSTConfig
-    let userAgent: String?
-    
-    init(config: SSTConfig, userAgent: String?) {
-        self.config = config
-        self.userAgent = userAgent
+    static internal var uaTask:Task<Void, Never> {
+        let task = Task {
+            let userAgent = await MainActor.run {
+                let webView = WKWebView()
+                return webView.value(forKey: "userAgent") as? String
+            }
+            Sst.instance?.userAgent = userAgent
+        }
+        return task
     }
     
-    public static func configure(_ config: SSTConfig) async {
-        guard URL(string: "https://\(config.domain)/pc/\(config.client)/sst") != nil else {
-            log.error("Cheq SST not configured, invalid domain or client")
+    static internal var instance:Sst?
+    public static let dataLayer = DataLayer()
+    
+    let config:Config
+    var userAgent: String?
+    
+    init(config: Config) {
+        self.config = config
+    }
+    
+    /// Configures Sst
+    /// - Parameter config: The configuration object
+    public static func configure(_ config: Config) {
+        guard URL(string: "https://\(config.domain)/pc/\(config.clientName)/sst") != nil else {
+            log.error("Cheq Sst not configured, invalid domain or client")
             return
         }
-        
-        let userAgent = await MainActor.run {
-            let webView = WKWebView()
-            return webView.value(forKey: "userAgent") as? String
-        }
-        
-        instance = SST(config: config, userAgent: userAgent)
-        log.info("Cheq SST configured")
+        instance = Sst(config: config)
+        log.info("Cheq Sst configured")
     }
     
-    public static func trackEvent(_ event: TrackEvent) async {
+    /// Tracks an event
+    /// - Parameter event: The event to be tracked
+    public static func trackEvent(_ event: SstEvent) async {
         let _ = await _trackEvent(event)
     }
     
-    public static func getUUID() -> String? {
+    /// Retrieves the stored Cheq Uuid
+    public static func getCheqUuid() -> String? {
         return HTTP.getUUID()
     }
     
-    public static func clearUUID() {
+    /// Clears the stored Cheq Uuid
+    public static func clearCheqUuid() {
         HTTP.clearUUID()
     }
-    
-    public enum dataLayer {
-        public static func all() -> [String: Any] {
-            return DataLayer.all()
-        }
-        
-        public static func clear() {
-            DataLayer.clear()
-        }
-        
-        public static func contains(_ key:String) -> Bool {
-            return DataLayer.contains(key)
-        }
-        
-        public static func get(_ key: String) -> Any? {
-            return DataLayer.get(key)
-        }
-        
-        public static func add(key: String, value: Any) {
-            DataLayer.add(key: key, value: value)
-        }
-        
-        public static func remove(_ key: String) -> Bool {
-            return DataLayer.remove(key)
-        }
-    }
-    
-    static func _trackEvent(_ event: TrackEvent) async -> TrackEventResult? {
+
+    static func _trackEvent(_ event: SstEvent) async -> TrackEventResult? {
         guard let instance = instance else {
             log.error("Not configured, must call configure first")
             return nil
+        }
+        if (instance.userAgent == nil) {
+            await Sst.uaTask.value
         }
         var event_data = event.data
         if !event_data.keys.contains("__timestamp") {
@@ -82,13 +72,13 @@ public class SST {
         
         let screenInfo = Info.getScreenInfo()
         let sstData: [String: Any] = [
-            "settings": SSTSettings(publishPath: instance.config.publishPath, nexusHost: instance.config.nexusHost),
+            "settings": Settings(publishPath: instance.config.publishPath, nexusHost: instance.config.nexusHost),
             "dataLayer": [
                 "__mobileData": await instance.config.models.collect(event: event, sst: instance),
                 instance.config.dataLayerName: dataLayer.all()
             ],
-            "events": [SSTEvent(name: event.name, data: event_data)],
-            "virtualBrowser": SSTVirtualBrowser(height: screenInfo.height,
+            "events": [Event(name: event.name, data: event_data)],
+            "virtualBrowser": VirtualBrowser(height: screenInfo.height,
                                                 width: screenInfo.width,
                                                 timezone: TimeZone.current.identifier,
                                                 language: Locale.preferredLanguages.joined(separator: ","))
@@ -102,13 +92,13 @@ public class SST {
             return nil
         }
         let statusCode = await HTTP.sendHttpPost(userAgent: instance.userAgent,
-                                                 url: instance.getURL(params: event.params),
+                                                 url: instance.getURL(params: event.parameters),
                                                  jsonString: jsonString!,
                                                  debug: instance.config.debug)
         return TrackEventResult(statusCode: statusCode, requestBody: jsonString!)
     }
     
-    static func getInstance() -> SST {
+    static func getInstance() -> Sst {
         guard let instance = instance else {
             fatalError("Not configured, must call configure first")
         }
@@ -116,7 +106,7 @@ public class SST {
     }
     
     func getParams(params:[String: String]) -> [URLQueryItem] {
-        let combinedParams = params.merging(SST.baseParams) { (_, new) in new }
+        let combinedParams = params.merging(Sst.baseParams) { (_, new) in new }
         return combinedParams.keys.sorted().map { key in
             URLQueryItem(name: key, value: combinedParams[key])
         }
@@ -126,7 +116,7 @@ public class SST {
         var components = URLComponents()
         components.scheme = "https"
         components.host = config.domain
-        components.path = "/pc/\(config.client)/sst"
+        components.path = "/pc/\(config.clientName)/sst"
         components.queryItems = getParams(params: params)
         return components.url!
     }

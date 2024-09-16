@@ -1,9 +1,15 @@
 import Foundation
 
-public class Models {
+
+/// Models that provide data for Sst events, base models include app, device and library
+public struct Models {
     private var baseModelSet: ModelSet = try! ModelSet(AppModel(), DeviceModel(), LibraryModel())
     private var customModelSet: ModelSet = try! ModelSet()
     
+    
+    /// initialize Models with custom models
+    /// - Parameter customModels: custom models to include in every event
+    /// - Throws: `SstError.invalidModelKey` if any model keys are invalid, `SstError.duplicateModelKey` if any model keys are duplicates
     public init(_ customModels: Model...) throws {
         for model in customModels {
             try self.add(model)
@@ -24,10 +30,10 @@ public class Models {
     
     func add<T: Model>(_ model: T) throws {
         if (model.key.isEmpty) {
-            throw SSTError.invalidModelKey
+            throw SstError.invalidModelKey
         }
         if baseModelSet.containsKey(model.key) || baseModelSet.containsModel(type(of: model)) {
-            throw SSTError.duplicateModelKey("A base model with the key '\(model.key)' already exists and cannot be overridden")
+            throw SstError.duplicateModelKey("A base model with the key '\(model.key)' already exists and cannot be overridden")
         }
         try customModelSet.add(model)
     }
@@ -40,7 +46,7 @@ public class Models {
         lhs.remove(rhs)
     }
     
-    func collect(event: TrackEvent, sst: SST) async -> [String: Any] {
+    func collect(event: SstEvent, sst: Sst) async -> [String: Any] {
         var result: [String: Any] = [:]
         for model in getAll() {
             result[model.key] = await model.get(event: event, sst: sst)
@@ -77,10 +83,10 @@ public class Models {
         
         func add<T: Model>(_ model: T) throws {
             if let existingModel = keyedModels[model.key] {
-                throw SSTError.duplicateModelKey("Model \(type(of: existingModel)) already exists with key \(model.key).")
+                throw SstError.duplicateModelKey("Model \(type(of: existingModel)) already exists with key \(model.key).")
             }
             if let existingModel = models[ObjectIdentifier(type(of: model))] {
-                throw SSTError.duplicateModelKey("Model \(type(of: existingModel)) already exists. Cannot add duplicate model class.")
+                throw SstError.duplicateModelKey("Model \(type(of: existingModel)) already exists. Cannot add duplicate model class.")
             }
             keyedModels[model.key] = model
             models[ObjectIdentifier(type(of: model))] = model
@@ -102,21 +108,32 @@ public class Models {
     }
 }
 
+
+/// Base model class, extend with custom logic
 open class Model {
     
     public init() {}
     
+    /// model key, must be overriden
     open var key: String {
         get {
             fatalError("This property must be overridden")
         }
     }
     
+    
+    /// model version, default `0.1`
     open var version: String {
         get { "0.1" }
     }
     
-    open func get(event: TrackEvent, sst: SST) async -> Any {
+    
+    /// returns data to be stored under the model ``key``
+    /// - Parameters:
+    ///   - event: current Sst event
+    ///   - sst: Sst instance
+    /// - Returns: custom data that will be stored under the model ``key``
+    open func get(event: SstEvent, sst: Sst) async -> Any {
         fatalError("This method must be overridden")
     }
 }
@@ -126,7 +143,7 @@ class AppModel: Model {
         get { "app" }
     }
     
-    override func get(event: TrackEvent, sst: SST) async -> Any {
+    override func get(event: SstEvent, sst: Sst) async -> Any {
         return Info.appInfo
     }
 }
@@ -136,7 +153,7 @@ class DeviceModel: Model {
         get { "device" }
     }
     
-    override func get(event: TrackEvent, sst: SST) async -> Any {
+    override func get(event: SstEvent, sst: Sst) async -> Any {
         return Info.gatherDeviceData()
     }
 }
@@ -146,7 +163,7 @@ class LibraryModel: Model {
         get { "library" }
     }
     
-    override func get(event: TrackEvent, sst: SST) async -> Any {
+    override func get(event: SstEvent, sst: Sst) async -> Any {
         return [
             "name": "ios-swift",
             "version": "0.1",
