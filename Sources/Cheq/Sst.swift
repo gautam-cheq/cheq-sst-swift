@@ -46,12 +46,12 @@ public class Sst {
         let _ = await _trackEvent(event)
     }
     
-    /// Retrieves the stored CHEQ Uuid
+    /// Retrieves the stored CHEQ UUID
     public static func getCheqUuid() -> String? {
         return HTTP.getUUID()
     }
     
-    /// Clears the stored CHEQ Uuid
+    /// Clears the stored CHEQ UUID
     public static func clearCheqUuid() {
         HTTP.clearUUID()
     }
