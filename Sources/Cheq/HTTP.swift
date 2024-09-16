@@ -14,7 +14,7 @@ enum HTTP {
     }
     
     static var log: Logger {
-        return Logger(subsystem: "com.cheq", category: "HTTP")
+        return Logger(subsystem: "Cheq", category: "HTTP")
     }
     
     static func getUUID() -> String? {

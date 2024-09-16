@@ -3,22 +3,17 @@ import Cheq
 
 @main
 struct SimpleSwiftUIApp: App {
-    init() {
-        Task {
-            // increment launch count
-            if var launchCount = SST.dataLayer.get("launchCount") as? Int {
-                launchCount += 1
-                SST.dataLayer.add(key: "launchCount", value: launchCount)
-            } else {
-                SST.dataLayer.add(key: "launchCount", value: 1)
-            }
-            await SST.configure(SSTConfig(client: "di_demo",
-                                publishPath: "sst",
-                                models: try! Models(Static(), CheqAdvertisingModel()),
-                                debug: true))
-            await SST.trackEvent(TrackEvent(name: "launch",
-                                 data: ["card": PlayingCard(rank: Rank.ace, suit: Suit.spades), "now": Date()]))
+    init() {    
+        // track launch count
+        if var launchCount = Sst.dataLayer.get("launchCount") as? Int {
+            launchCount += 1
+            Sst.dataLayer.add(key: "launchCount", value: launchCount)
+        } else {
+            Sst.dataLayer.add(key: "launchCount", value: 1)
         }
+        Sst.configure(Config("mobile_demo",
+                             models: try! Models(Static(), CheqAdvertisingModel()),
+                             debug: true))
     }
     var body: some Scene {
         WindowGroup {
@@ -28,30 +23,10 @@ struct SimpleSwiftUIApp: App {
 }
 
 class Static : Model {
-    var card: PlayingCard?
-    
     override var key: String {
-        "static"
+        "custom_static_model"
     }
-    override func get(event: TrackEvent, sst: SST) async -> Any {
-        if card == nil {
-            card = PlayingCard(rank: Rank.eight, suit: Suit.diamonds)
-        }
-        return card!
+    override func get(event: SstEvent, sst: Sst) async -> Any {
+        return ["foo": "bar"]
     }
-}
-
-public enum Rank: Int {
-    case two = 2
-    case three, four, five, six, seven, eight, nine, ten
-    case jack, queen, king, ace
-}
-
-public enum Suit: String {
-    case spades, hearts, diamonds, clubs
-}
-
-public struct PlayingCard {
-    let rank: Rank
-    let suit: Suit
 }
