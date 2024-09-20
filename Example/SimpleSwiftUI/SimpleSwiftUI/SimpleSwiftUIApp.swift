@@ -3,7 +3,7 @@ import Cheq
 
 @main
 struct SimpleSwiftUIApp: App {
-    init() {    
+    init() {
         // track launch count
         if var launchCount = Sst.dataLayer.get("launchCount") as? Int {
             launchCount += 1
@@ -11,14 +11,18 @@ struct SimpleSwiftUIApp: App {
         } else {
             Sst.dataLayer.add(key: "launchCount", value: 1)
         }
-        Sst.configure(Config("mobile_demo",
-                             models: try! Models(Static(), CheqAdvertisingModel()),
-                             debug: true))
+        SimpleSwiftUIApp.initializeSst()
     }
     var body: some Scene {
         WindowGroup {
             ContentView()
         }
+    }
+    
+    static func initializeSst() {
+        Sst.configure(Config("mobile_demo",
+                             models: try! Models(Static(), CheqAdvertisingModel()),
+                             debug: true))
     }
 }
 
@@ -26,7 +30,12 @@ class Static : Model {
     override var key: String {
         "custom_static_model"
     }
-    override func get(event: SstEvent, sst: Sst) async -> Any {
+    override func get(event: Event, sst: Sst) async -> Any {
         return ["foo": "bar"]
+    }
+}
+
+struct BadEncodable: Encodable {
+    func encode(to encoder: Encoder) throws {
     }
 }

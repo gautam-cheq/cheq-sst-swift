@@ -6,9 +6,7 @@ enum HTTP {
     static let storage = UserDefaults(suiteName: "cheq.sst.http")
     
     static var session:URLSession {
-        let config = URLSessionConfiguration.default
-        config.httpCookieStorage = nil
-        config.httpCookieAcceptPolicy = .never
+        let config = URLSessionConfiguration.ephemeral
         let session = URLSession(configuration: config)
         return session
     }
@@ -64,36 +62,53 @@ enum HTTP {
         }
     }
     
-    static func sendHttpPost(userAgent: String?, url: URL, jsonString: String, debug: Bool) async -> Int? {
+    static func sendHttpPost(userAgent: String?, url: URL, jsonString: String, debug: Bool) async throws -> Int? {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         if let userAgent = userAgent {
             request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         }
         if let uuid = storage?.string(forKey: "uuid") {
-             request.setValue("uuid=\(uuid)", forHTTPHeaderField: "Cookie")
+            request.setValue("uuid=\(uuid)", forHTTPHeaderField: "Cookie")
         }
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = jsonString.data(using: .utf8)
         if (debug) {
             logRequest(request: request)
         }
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            log.error("Invalid response")
+            return nil
+        }
+        if let uuid = httpResponse.value(forHTTPHeaderField: "x-offsite-uuid") {
+            storage?.set(uuid, forKey: "uuid")
+        }
+        if (debug) {
+            logResponse(response: httpResponse, responseData: data)
+        }
+        return httpResponse.statusCode
+    }
+    
+    static func sendError(userAgent: String?, url: URL, referrer: String) async -> Bool {
+        var request = URLRequest(url: url)
+        if let userAgent = userAgent {
+            request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        }
+        request.httpMethod = "GET"
+        request.setValue(referrer, forHTTPHeaderField: "Referer")
+        logRequest(request: request)
         do {
             let (data, response) = try await session.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
                 log.error("Invalid response")
-                return nil
+                return false
             }
-            if let uuid = httpResponse.value(forHTTPHeaderField: "x-offsite-uuid") {
-                storage?.set(uuid, forKey: "uuid")
-            }
-            if (debug) {
-                logResponse(response: httpResponse, responseData: data)
-            }
-            return httpResponse.statusCode
+            logResponse(response: httpResponse, responseData: data)
         } catch {
-            log.error("Error: \(error.localizedDescription, privacy: .public)")
-            return nil
+            log.error("Error: \(error, privacy: .public)")
+            return false
         }
+        return true
     }
 }

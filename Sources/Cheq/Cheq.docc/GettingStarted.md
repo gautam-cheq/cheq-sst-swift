@@ -1,6 +1,6 @@
-# Getting Started with Sst
+# Getting Started with CHEQ Server-Side Tagging (SST)
 
-### Configure Sst
+### Configure SST
 
 Provide client name
 
@@ -17,5 +17,5 @@ Provide a name and optional data
 ```swift
 import Cheq
 
-await Sst.trackEvent(SstEvent("screen_view", data: ["screen_name": "Home"]) 
+await Sst.trackEvent(Event("screen_view", data: ["screen_name": "Home"]) 
 ```

@@ -1,7 +1,7 @@
 import Foundation
 
 
-/// Models that provide data for Sst events, base models include app, device and library
+/// Models that provide data for SST events, base models include app, device and library
 public struct Models {
     private var baseModelSet: ModelSet = try! ModelSet(AppModel(), DeviceModel(), LibraryModel())
     private var customModelSet: ModelSet = try! ModelSet()
@@ -16,19 +16,31 @@ public struct Models {
         }
     }
     
-    func get<T: Model>(_ clazz: T.Type) -> T? {
+    
+    /// get a model for the given type
+    /// - Parameter clazz: model class
+    /// - Returns: model if present
+    public func get<T: Model>(_ clazz: T.Type) -> T? {
         return baseModelSet.get(clazz) ?? customModelSet.get(clazz)
     }
     
-    func getAll() -> [Model] {
+    
+    /// returns all models
+    /// - Returns: all model
+    public func getAll() -> [Model] {
         return baseModelSet.getAll() + customModelSet.getAll()
     }
     
-    static func +=<T: Model>(lhs: inout Models, rhs: T) throws {
+    
+    public static func +=<T: Model>(lhs: inout Models, rhs: T) throws {
         try lhs.add(rhs)
     }
     
-    func add<T: Model>(_ model: T) throws {
+    
+    /// adds the provided model
+    /// - Parameter model: model to add
+    /// - Throws: `SstError.invalidModelKey` if model key is invalid, `SstError.duplicateModelKey` if model key is duplicate
+    public func add<T: Model>(_ model: T) throws {
         if (model.key.isEmpty) {
             throw SstError.invalidModelKey
         }
@@ -38,15 +50,18 @@ public struct Models {
         try customModelSet.add(model)
     }
     
-    func remove<T: Model>(_ clazz: T.Type) {
+    
+    /// remove model for the given type
+    /// - Parameter clazz: model class
+    public func remove<T: Model>(_ clazz: T.Type) {
         customModelSet.remove(clazz)
     }
     
-    static func -=<T: Model>(lhs: inout Models, rhs: T.Type) {
+    public static func -=<T: Model>(lhs: inout Models, rhs: T.Type) {
         lhs.remove(rhs)
     }
     
-    func collect(event: SstEvent, sst: Sst) async -> [String: Any] {
+    func collect(event: Event, sst: Sst) async -> [String: Any] {
         var result: [String: Any] = [:]
         for model in getAll() {
             result[model.key] = await model.get(event: event, sst: sst)
@@ -122,18 +137,18 @@ open class Model {
     }
     
     
-    /// model version, default `0.1`
+    /// model version, default `1.0.0`
     open var version: String {
-        get { "0.1" }
+        get { "1.0.0" }
     }
     
     
     /// returns data to be stored under the model ``key``
     /// - Parameters:
-    ///   - event: current Sst event
-    ///   - sst: Sst instance
+    ///   - event: current SST event
+    ///   - sst: SST instance
     /// - Returns: custom data that will be stored under the model ``key``
-    open func get(event: SstEvent, sst: Sst) async -> Any {
+    open func get(event: Event, sst: Sst) async -> Any {
         fatalError("This method must be overridden")
     }
 }
@@ -143,7 +158,7 @@ class AppModel: Model {
         get { "app" }
     }
     
-    override func get(event: SstEvent, sst: Sst) async -> Any {
+    override func get(event: Event, sst: Sst) async -> Any {
         return Info.appInfo
     }
 }
@@ -153,7 +168,7 @@ class DeviceModel: Model {
         get { "device" }
     }
     
-    override func get(event: SstEvent, sst: Sst) async -> Any {
+    override func get(event: Event, sst: Sst) async -> Any {
         return Info.gatherDeviceData()
     }
 }
@@ -163,10 +178,10 @@ class LibraryModel: Model {
         get { "library" }
     }
     
-    override func get(event: SstEvent, sst: Sst) async -> Any {
+    override func get(event: Event, sst: Sst) async -> Any {
         return [
-            "name": "ios-swift",
-            "version": "0.1",
+            "name": Info.library_name,
+            "version": Info.library_version,
             "models": sst.config.models.info()
         ]
     }

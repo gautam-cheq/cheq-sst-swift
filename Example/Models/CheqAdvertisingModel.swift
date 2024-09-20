@@ -7,7 +7,7 @@ class CheqAdvertisingModel: Model {
         get { "advertising" }
     }
     
-    override func get(event: SstEvent, sst: Sst) async -> Any {
+    override func get(event: Event, sst: Sst) async -> Any {
         var trackingAuthorized = false
         var id = "Unknown"
         if ATTrackingManager.trackingAuthorizationStatus == .authorized {
