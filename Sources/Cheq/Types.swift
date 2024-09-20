@@ -1,14 +1,14 @@
 import Foundation
 
 
-/// Sst Event
-public struct SstEvent {
+/// SST Event
+public struct Event {
     let name: String
     let data: [String: Any]
     let parameters: [String: String]
     
     
-    /// Creates an Sst Event
+    /// Creates an SST Event
     /// - Parameters:
     ///   - name: name of event
     ///   - data: optional event data
@@ -21,12 +21,14 @@ public struct SstEvent {
 }
 
 struct TrackEventResult: Codable {
-    let statusCode: Int?
+    let url:String
     let requestBody: String
+    let statusCode: Int?
+    let userAgent: String?
 }
 
 
-/// Sst Configuration
+/// SST Configuration
 public struct Config {
     let clientName: String
     let domain: String
@@ -38,7 +40,7 @@ public struct Config {
     let dateProvider: DateProvider
     
     
-    /// Creates an Sst Config
+    /// Creates an SST Configuration
     /// - Parameters:
     ///   - clientName: client name
     ///   - domain: optional domain, use your first-party domain, default `t.nc0.co`
@@ -79,11 +81,6 @@ struct Settings: Codable {
     let nexusHost: String
 }
 
-struct Event {
-    let name: String
-    let data: [String: Any]
-}
-
 struct AppInfo: Codable {
     let namespace: String
     let name: String
@@ -92,8 +89,8 @@ struct AppInfo: Codable {
 }
 
 
-/// Sst errors
-public enum SstError: Error {
+/// SST errors
+public enum SstError: Error, Equatable {
     case invalidModelKey
     case duplicateModelKey(String)
 }

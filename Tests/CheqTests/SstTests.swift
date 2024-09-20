@@ -21,6 +21,12 @@ final class SstTests: XCTestCase {
         XCTAssertNil(uuid)
     }
     
+    func testPublicTrackEvent() async {
+        Sst.configure(Config("test"))
+        await Sst.trackEvent(Event("testPublicTrackEvent"))
+        await Sst.trackEvent(Event("testPublicTrackEvent2"))
+    }
+    
     func testTrackEvent() async throws {
         let date = Date(timeIntervalSince1970: 1337)
         Sst.configure(Config("di_demo", domain: "echo.cheqai.workers.dev", debug: true, dateProvider: StaticDateProvider(fixedDate: date)))
@@ -37,13 +43,15 @@ final class SstTests: XCTestCase {
                                     cards: [PlayingCard(rank: Rank.ace, suit: Suit.spades), PlayingCard(rank: Rank.two, suit: Suit.hearts)],
                                     nillable: nil,
                                     nsnull: NSNull());
-        guard let result = await Sst._trackEvent(SstEvent(eventName, data: ["customData": customData], parameters: ["foo":"bar", "test foo": "true&1337 baz="])) else {
+        guard let result = await Sst._trackEvent(Event(eventName, data: ["customData": customData], parameters: ["sstOrigin": "blah", "foo":"bar", "test foo": "true&1337 baz="])) else {
             XCTFail("Failed to get valid response")
             return
         }
-        
         let requestDict = decodeJSON(result.requestBody)
         verifyRequest(requestDict, eventName: eventName, date: date)
+        let expectedUrl = "https://echo.cheqai.workers.dev/pc/di_demo/sst?foo=bar&sstOrigin=mobile&sstVersion=1.0.0&test%20foo=true%261337%20baz%3D"
+        XCTAssertEqual(expectedUrl, result.url, "invalid url")
+        XCTAssertNotNil(result.userAgent)
     }
     
     
@@ -51,8 +59,8 @@ final class SstTests: XCTestCase {
         let foo = Foo()
         let models = try Models(foo)
         let date = Date(timeIntervalSince1970: 2375623857)
-        Sst.configure(Config("di_demo", domain: "test", models: models, dateProvider: StaticDateProvider(fixedDate: date)))
-        guard let result = await Sst._trackEvent(SstEvent("testCustomModel")) else {
+        Sst.configure(Config("di_demo", models: models, dateProvider: StaticDateProvider(fixedDate: date)))
+        guard let result = await Sst._trackEvent(Event("testCustomModel")) else {
             XCTFail("Failed to get valid response")
             return
         }
@@ -68,8 +76,8 @@ final class SstTests: XCTestCase {
     }
     
     func testOverwriteTimestamp() async throws {
-        Sst.configure(Config("test", domain: "test"))
-        guard let result = await Sst._trackEvent(SstEvent("testOverwriteTimestamp", data: ["__timestamp": "foo"])) else {
+        Sst.configure(Config("test"))
+        guard let result = await Sst._trackEvent(Event("testOverwriteTimestamp", data: ["__timestamp": "foo"])) else {
             XCTFail("Failed to get valid response")
             return
         }
@@ -83,7 +91,7 @@ final class SstTests: XCTestCase {
         Sst.dataLayer.add(key: "card", value: PlayingCard(rank: Rank.queen, suit: Suit.hearts))
         Sst.dataLayer.add(key: "optedIn", value: false)
         Sst.configure(Config("test", dataLayerName: "DATA"))
-        guard let result = await Sst._trackEvent(SstEvent("testDataLayer", data: ["__timestamp": "foo"])) else {
+        guard let result = await Sst._trackEvent(Event("testDataLayer", data: ["__timestamp": "foo"])) else {
             XCTFail("Failed to get valid response")
             return
         }
@@ -91,6 +99,41 @@ final class SstTests: XCTestCase {
         verifyRequest(requestDict, eventName: "testDataLayer")
         let DATADict = (requestDict["dataLayer"] as! [String: Any])["DATA"] as! [String: Any]
         XCTAssertFalse(DATADict["optedIn"] as! Bool)
+    }
+    
+    func testTrackEventInvalidData() async {
+        Sst.configure(Config("test"))
+        let result = await Sst._trackEvent(Event("testTrackEventInvalidData", data: ["invalidJson": InvalidJSON()]))
+        XCTAssertNil(result)
+    }
+    
+    func testTrackEventExpiredCertificate() async {
+        Sst.configure(Config("test", domain: "analytics.ensighten.com"))
+        let result = await Sst._trackEvent(Event("testTrackEventExpiredCertificate"))
+        XCTAssertNil(result)
+    }
+    
+    func testTrackEventInvalidDomain() async {
+        Sst.configure(Config("test", domain: "foo.domain"))
+        let result = await Sst._trackEvent(Event("testTrackEventInvalidDomain"))
+        XCTAssertNil(result)
+    }
+    
+    func testSendErrorHandlesLargeMessage() async {
+        Sst.configure(Config("test"))
+        let msg = String(repeating: "A", count: 65535)
+        let result = await Sst.sendError(msg: msg, fn: "testSendErrorHandlesLargeMessage", errorName: "testSendErrorHandlesLargeMessage")
+        XCTAssertTrue(result)
+    }
+    
+    func testSendErrorBadNexus() async {
+        Sst.configure(Config("test", nexusHost: "fake.domain"))
+        let result = await Sst.sendError(msg: "foo", fn: "bar", errorName: "baz")
+        XCTAssertFalse(result)
+    }
+    
+    func testTruncate() {
+        XCTAssertEqual("abcdefg...", Sst.truncate("abcdefghijk", 10));
     }
     
     func verifyRequest(_ requestDict:[String: Any], eventName: String, date: Date? = nil) {
@@ -153,7 +196,7 @@ final class SstTests: XCTestCase {
             do {
                 return try JSONSerialization.jsonObject(with: jsonData, options: []) as! [String: Any]
             } catch {
-                XCTFail("Failed to decode JSON: \(error.localizedDescription)")
+                XCTFail("Failed to decode JSON: \(error)")
             }
         }
         XCTFail("Failed to get data")
@@ -196,8 +239,13 @@ final class SstTests: XCTestCase {
         override var version: String {
             get { "1.33.7" }
         }
-        override func get(event: SstEvent, sst: Sst) async -> Any {
+        override func get(event: Event, sst: Sst) async -> Any {
             return "hello"
+        }
+    }
+    
+    struct InvalidJSON: Encodable {
+        func encode(to encoder: Encoder) throws {
         }
     }
 }

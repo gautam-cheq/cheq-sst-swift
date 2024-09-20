@@ -17,8 +17,8 @@ public struct DataLayer {
     /// - Returns: dictionary of data, non-primitive data is returned as dictionaries
     public func all() -> [String: Any] {
         var result:[String: Any] = [:]
-        if let data = data {
-            let rawData = data.dictionaryRepresentation()
+        if let data = data,
+           let rawData = data.persistentDomain(forName: suiteName) {
             for key in rawData.keys {
                 if let existing = rawData[key] as? String,
                    let jsonData = existing.data(using: .utf8),
@@ -41,7 +41,7 @@ public struct DataLayer {
     /// - Parameter key: key to check
     /// - Returns: true if key exists in data layer
     public func contains(_ key:String) -> Bool {
-        return data?.object(forKey: key) != nil
+        return data?.persistentDomain(forName: suiteName)?.index(forKey: key) != nil
     }
     
     
@@ -51,7 +51,8 @@ public struct DataLayer {
     public func get(_ key: String) -> Any? {
         var result: Any? = nil
         if let data = data,
-           let existing = data.string(forKey: key),
+           let rawData = data.persistentDomain(forName: suiteName),
+           let existing = rawData[key] as? String,
            let jsonData = existing.data(using: .utf8),
            let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
             result = json["value"]
@@ -65,11 +66,15 @@ public struct DataLayer {
     ///   - key: key to store
     ///   - value: value to store
     public func add(key: String, value: Any) {
-        guard let json = try? JSON.convertToJSONString(["value": value]) else {
-            log.error("Failed to serialize value for key \(key, privacy: .public)")
-            return
+        do {
+            let json = try JSON.convertToJSONString(["value": value])
+            data?.set(json, forKey: key)
+        } catch {
+            log.error("Key \(key, privacy: .public), SerializationError: \(error, privacy: .public)")
+            Task {
+                await Sst.sendError(msg: "Key \(key), details: \(error.localizedDescription)", fn: "Sst.dataLayer.add", errorName: "SerializationError")
+            }
         }
-        data?.set(json, forKey: key)
     }
     
     

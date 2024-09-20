@@ -7,4 +7,4 @@
 - <doc:GettingStarted>
 - ``Sst``
 - ``Config``
-- ``SstEvent``
+- ``Event``
