@@ -1,4 +1,4 @@
-# Getting Started with CHEQ Server-Side Tagging (SST)
+# Getting Started with CHEQ Swift Server-Side Tagging (SST)
 
 ### Configure SST
 
