@@ -1,10 +1,10 @@
 # ``Cheq``
+CHEQ Swift Server-Side Tagging (SST)
 
 ## Topics
 
-### Essentials
-
 - <doc:GettingStarted>
+- <doc:ImplementationGuide>
 - ``Sst``
 - ``Config``
 - ``Event``
