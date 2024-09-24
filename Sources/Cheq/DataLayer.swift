@@ -2,7 +2,7 @@ import Foundation
 import os
 
 
-/// Persistent data layer
+/// A data layer that stores key-value pairs to persistent storage.
 public struct DataLayer {
     internal let log = Logger(subsystem: "Cheq", category: "DataLayer")
     internal let suiteName = "cheq.sst.datalayer"

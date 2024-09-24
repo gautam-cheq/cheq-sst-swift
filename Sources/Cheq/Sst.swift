@@ -20,6 +20,8 @@ public class Sst {
     }
     
     static internal var instance:Sst?
+    
+    /// Persistent data layer
     public static let dataLayer = DataLayer()
     
     let config:Config

@@ -2,7 +2,7 @@
 
 1. Install Xcode 16: https://developer.apple.com/xcode/
 2. Open Package.swift in Xcode
-3. Run Tests for swift-sst
+3. Run Tests for cheq-sst-swift
 
 ### Building
 
@@ -11,7 +11,7 @@
 
 ### Sample App
 
-1. Ensure you do not have the `swift-sst` package opened in Xcode
+1. Ensure you do not have the local `Cheq` package opened in Xcode
 2. Open `Example/SimpleSwiftUI/SimpleSwiftUI.xcodeproj`
 3. Deploy to simulator or device
 
