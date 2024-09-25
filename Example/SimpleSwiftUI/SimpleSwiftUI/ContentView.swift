@@ -41,12 +41,14 @@ struct HomeView: View {
                 Sst.clearCheqUuid()
                 uuidText = "N/A"
             }.padding()
-            Button("Send Custom Example") {
+            Button("Send Custom Example (No UUID)") {
                 Task {
-                    await Sst.trackEvent(Event("custom_example", data: ["string": "foobar",
-                                                                           "int": 123,
-                                                                           "float": 456.789,
-                                                                           "boolean": true]))
+                    await Sst.trackEvent(Event("custom_example",
+                                               data: ["string": "foobar",
+                                                      "int": 123,
+                                                      "float": 456.789,
+                                                      "boolean": true],
+                                               parameters: ["ensDisableTracking":"user"]))
                 }
             }.padding()
             Button("Trigger Network Error") {
