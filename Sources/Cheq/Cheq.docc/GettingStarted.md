@@ -21,7 +21,7 @@ Sst.configure(Config("client_name", debug: true))
 
 ### Track Event
 
-To track an event, you initialize a new ``Event`` structure and provide the event name.
+To track an event, you initialize a new ``Event`` structure and provide the event name. This sends a [SST protocol](https://help.ensighten.com/hc/en-us/articles/22990062690577-SST-Protocol-Reference) request.
 
 ```swift
 import Cheq
@@ -35,6 +35,14 @@ To include additional data for the event, populate the data property.
 import Cheq
 
 await Sst.trackEvent(Event("screen_view", data: ["screen_name": "Home"])) 
+```
+
+To include additional [query parameters](https://help.ensighten.com/hc/en-us/articles/22962356688273-Getting-Started-with-Data-Collection-Pixels) for the event, populate the parameters property.
+
+```swift
+import Cheq
+
+await Sst.trackEvent(Event("screen_view", parameters: ["ensDisableTracking": "user"])) 
 ```
 
 ### Persistent Data Layer
