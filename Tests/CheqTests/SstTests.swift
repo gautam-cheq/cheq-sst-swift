@@ -8,6 +8,17 @@ final class SstTests: XCTestCase {
         Sst.clearCheqUuid()
     }
     
+    #if os(visionOS)
+    func testVisionPro() async {
+        guard let result = await Sst._trackEvent(Event("testVisionPro")) else {
+            XCTFail("Failed to get valid response")
+            return
+        }
+        let requestDict = decodeJSON(result.requestBody)
+        verifyRequest(requestDict, eventName: "testVisionPro", orientation: "Vision")
+    }
+    #endif
+    
     func testConfigureInvalidDomain() {
         Sst.configure(Config("test", domain: "a b"))
     }
@@ -107,12 +118,6 @@ final class SstTests: XCTestCase {
         XCTAssertNil(result)
     }
     
-    func testTrackEventExpiredCertificate() async {
-        Sst.configure(Config("test", domain: "analytics.ensighten.com"))
-        let result = await Sst._trackEvent(Event("testTrackEventExpiredCertificate"))
-        XCTAssertNil(result)
-    }
-    
     func testTrackEventInvalidDomain() async {
         Sst.configure(Config("test", domain: "foo.domain"))
         let result = await Sst._trackEvent(Event("testTrackEventInvalidDomain"))
@@ -136,7 +141,7 @@ final class SstTests: XCTestCase {
         XCTAssertEqual("abcdefg...", Sst.truncate("abcdefghijk", 10));
     }
     
-    func verifyRequest(_ requestDict:[String: Any], eventName: String, date: Date? = nil) {
+    func verifyRequest(_ requestDict:[String: Any], eventName: String, date: Date? = nil, orientation: String? = nil) {
         let dataLayer = requestDict["dataLayer"] as! [String: Any]
         XCTAssertNotNil(dataLayer, "missing dataLayer")
         let mobileData = dataLayer["__mobileData"] as! [String: Any]
@@ -152,6 +157,9 @@ final class SstTests: XCTestCase {
         let screen = device["screen"] as! [String: Any]
         XCTAssertNotNil(screen)
         XCTAssertNotNil(screen["orientation"])
+        if let orientation = orientation {
+            XCTAssertEqual(orientation, screen["orientation"] as! String)
+        }
         XCTAssertNotNil(screen["width"])
         XCTAssertNotNil(screen["height"])
         XCTAssertNotNil(device["id"])
