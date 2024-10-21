@@ -4,7 +4,7 @@ import UIKit
 enum Info {
     
     static let library_name = "cheq-sst-swift"
-    static let library_version = "0.1.1"
+    static let library_version = "0.2.0"
     
     static var cpuArchitecture: String = {
 #if arch(x86_64)
@@ -62,8 +62,16 @@ enum Info {
     }
     
     static func getScreenInfo() -> ScreenInfo {
-        let bounds = UIScreen.main.bounds
+        let height:Int
+        let width:Int
         let orientation: String
+#if os(visionOS)
+        orientation = "Vision"
+        // Use default values defined as 1280x720:  https://developer.apple.com/design/human-interface-guidelines/windows#visionOS:~:text=By%20default%2C%20a%20window%20measures%201280x720%20pt
+        height = 720
+        width = 1280
+#else
+        let bounds = UIScreen.main.bounds
         switch UIDevice.current.orientation {
         case .portrait:
             orientation = "Portrait"
@@ -82,6 +90,9 @@ enum Info {
         @unknown default:
             orientation = "Unknown"
         }
-        return ScreenInfo(orientation: orientation, height: Int(bounds.height), width: Int(bounds.width))
+        height = Int(bounds.height)
+        width = Int(bounds.width)  
+#endif
+        return ScreenInfo(orientation: orientation, height: height, width: width)
     }
 }
