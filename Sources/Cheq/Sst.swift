@@ -72,7 +72,7 @@ public class Sst {
             event_data["__timestamp"] = timestamp
         }
         
-        let screenInfo = Info.getScreenInfo()
+        let screenInfo = instance.config.screenEnabled ? Info.getScreenInfo() : nil
         let sstData: [String: Any] = [
             "settings": Settings(publishPath: instance.config.publishPath, nexusHost: instance.config.nexusHost),
             "dataLayer": [
@@ -80,8 +80,8 @@ public class Sst {
                 instance.config.dataLayerName: dataLayer.all()
             ],
             "events": [["name": event.name, "data": event_data]],
-            "virtualBrowser": VirtualBrowserData(height: screenInfo.height,
-                                                 width: screenInfo.width,
+            "virtualBrowser": VirtualBrowserData(height: screenInfo?.height,
+                                                 width: screenInfo?.width,
                                                  timezone: TimeZone.current.identifier,
                                                  language: Locale.preferredLanguages.joined(separator: ","),
                                                  page: instance.config.virtualBrowser.page)

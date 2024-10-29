@@ -44,5 +44,5 @@ If you are using [AdSupport](https://developer.apple.com/documentation/adsupport
 ```swift
 import Cheq
 
-Sst.configure(Config("client_name", models: try! Models(CheqAdvertisingModel())))
+Sst.configure(Config("client_name", models: try! Models.default().add(CheqAdvertisingModel())))
 ```

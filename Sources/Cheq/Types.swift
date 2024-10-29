@@ -39,6 +39,7 @@ public struct Config {
     let models: Models
     let debug: Bool
     let dateProvider: DateProvider
+    let screenEnabled: Bool
     
     
     /// Creates an SST Configuration
@@ -49,7 +50,7 @@ public struct Config {
     ///   - publishPath: optional publish path, default `sst`
     ///   - dataLayerName: optional data layer name, default `digitalData`
     ///   - virtualBrowser: optional ``VirtualBrowser``
-    ///   - models: optional custom models, default ``Models``
+    ///   - models: optional custom models, default ``Models/default()``
     ///   - debug: optional flag to enable debug logging, default `false`
     ///   - dateProvider: optional date provider, default ``SystemDateProvider``
     public init(_ clientName: String,
@@ -58,7 +59,7 @@ public struct Config {
                 publishPath: String = "sst",
                 dataLayerName: String = "digitalData",
                 virtualBrowser: VirtualBrowser = VirtualBrowser(),
-                models: Models = try! Models(),
+                models: Models = try! Models.default(),
                 debug: Bool = false,
                 dateProvider: DateProvider = SystemDateProvider()) {
         self.clientName = clientName
@@ -70,6 +71,7 @@ public struct Config {
         self.models = models
         self.debug = debug
         self.dateProvider = dateProvider
+        self.screenEnabled = (models.get(DeviceModel.self))?.config.screenEnabled == true
     }
 }
 
@@ -89,8 +91,8 @@ public struct VirtualBrowser {
 }
 
 struct VirtualBrowserData: Codable {
-    let height: Int
-    let width: Int
+    let height: Int?
+    let width: Int?
     let timezone: String
     let language: String
     let page: String?

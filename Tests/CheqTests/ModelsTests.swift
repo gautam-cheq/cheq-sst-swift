@@ -4,7 +4,7 @@ import XCTest
 final class ModelsTests: XCTestCase {
     func testModels() async throws {
         let foo = Foo()
-        let models = try Models(foo)
+        let models = try Models.default().add(foo)
         XCTAssertEqual(models.getAll().count, 4, "invalid model count")
         let fooModel = models.get(Foo.self)
         XCTAssertTrue(foo === fooModel!, "invalid instance of model")
@@ -12,7 +12,7 @@ final class ModelsTests: XCTestCase {
     }
     
     func testCollect() async throws {
-        let models = try Models(Foo())
+        let models = try Models.default().add(Foo())
         Sst.configure(Config("ModelsTest"))
         let result = await models.collect(event: Event("test"), sst: Sst.getInstance())
         XCTAssertNotNil(result["foo"])
@@ -27,11 +27,11 @@ final class ModelsTests: XCTestCase {
     }
     
     func testDuplicateModelError() {
-        XCTAssertThrowsError(try Models(Foo(), Foo())) { error in
+        XCTAssertThrowsError(try Models.required().add(Foo(), Foo())) { error in
             let sstError = error as! SstError
             switch sstError {
             case .duplicateModelKey(let message):
-                XCTAssertEqual(message, "Model Foo already exists with key foo.")
+                XCTAssertEqual(message, "A model with the key 'foo' or type 'Foo' already exists and cannot be overridden")
             default:
                 XCTFail("Unexpected sstError: \(sstError)")
             }
@@ -39,11 +39,11 @@ final class ModelsTests: XCTestCase {
     }
     
     func testDuplicateModelDifferentKeys() {
-        XCTAssertThrowsError(try Models(SubModel(key: "sub"), SubModel(key: "sub2"))) { error in
+        XCTAssertThrowsError(try Models.default().add(SubModel(key: "sub"), SubModel(key: "sub2"))) { error in
             let sstError = error as! SstError
             switch sstError {
             case .duplicateModelKey(let message):
-                XCTAssertEqual(message, "Model SubModel already exists. Cannot add duplicate model class.")
+                XCTAssertEqual(message, "A model with the key 'sub2' or type 'SubModel' already exists and cannot be overridden")
             default:
                 XCTFail("Unexpected sstError: \(sstError)")
             }
@@ -51,12 +51,12 @@ final class ModelsTests: XCTestCase {
     }
     
     func testAddAndRemove() {
-        var models = try! Models(SubModel(key: "sub"))
+        var models = try! Models.default().add(SubModel(key: "sub"))
         XCTAssertThrowsError(try models += SubModel(key: "sub2")) { error in
             let sstError = error as! SstError
             switch sstError {
             case .duplicateModelKey(let message):
-                XCTAssertEqual(message, "Model SubModel already exists. Cannot add duplicate model class.")
+                XCTAssertEqual(message, "A model with the key 'sub2' or type 'SubModel' already exists and cannot be overridden")
             default:
                 XCTFail("Unexpected sstError: \(sstError)")
             }
@@ -67,16 +67,35 @@ final class ModelsTests: XCTestCase {
     }
     
     func testErrorInitializingModels() throws {
-        XCTAssertThrowsError(try Models(SubModel(key: ""))) { error in
+        XCTAssertThrowsError(try Models.default().add(SubModel(key: ""))) { error in
             let sstError = error as! SstError
             XCTAssertEqual(SstError.invalidModelKey, sstError)
         }
         
-        XCTAssertThrowsError(try Models(SubModel(key: "library"))) { error in
+        XCTAssertThrowsError(try Models.required().add(SubModel(key: "library"))) { error in
             let sstError = error as! SstError
             switch sstError {
             case .duplicateModelKey(let message):
-                XCTAssertEqual(message, "A base model with the key 'library' already exists and cannot be overridden")
+                XCTAssertEqual(message, "A model with the key 'library' or type 'SubModel' already exists and cannot be overridden")
+            default:
+                XCTFail("Unexpected sstError: \(sstError)")
+            }
+        }
+    }
+    
+    func testDeviceModelIncluded() throws {
+        let deviceModel = DeviceModel.custom().disableId().create()
+        let models = try! Models.required().add(deviceModel)
+        let info = models.info()
+        XCTAssertEqual(info[deviceModel.key], deviceModel.version)
+    }
+    
+    func testReplaceBaseModelErrors() throws {
+        XCTAssertThrowsError(try Models.required().add(CustomDevice())) { error in
+            let sstError = error as! SstError
+            switch sstError {
+            case .duplicateModelKey(let message):
+                XCTAssertEqual(message, "A base model with the key 'device' cannot be overridden")
             default:
                 XCTFail("Unexpected sstError: \(sstError)")
             }
@@ -105,6 +124,13 @@ final class ModelsTests: XCTestCase {
             set {
                 _key = newValue
             }
+        }
+    }
+    
+    class CustomDevice: Model {
+        override var key: String { "device" }
+        override func get(event: Event, sst: Sst) async -> Any {
+            return ["id": UUID().uuidString]
         }
     }
 }

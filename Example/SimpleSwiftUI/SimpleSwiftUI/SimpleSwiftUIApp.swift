@@ -21,7 +21,7 @@ struct SimpleSwiftUIApp: App {
     
     static func initializeSst() {
         Sst.configure(Config("mobile_demo",
-                             models: try! Models(Static(), CheqAdvertisingModel()),
+                             models: try! Models.default().add(CheqAdvertisingModel()),
                              debug: true))
     }
 }
