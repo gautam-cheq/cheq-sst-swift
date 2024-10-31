@@ -63,7 +63,7 @@ public class Sst {
             log.error("CHEQ SST not configured, must call configure first")
             return nil
         }
-        if (instance.userAgent == nil) {
+        if (instance.config.virtualBrowser.userAgent == nil && instance.userAgent == nil) {
             await Sst.uaTask.value
         }
         var event_data = event.data
@@ -80,13 +80,14 @@ public class Sst {
                 instance.config.dataLayerName: dataLayer.all()
             ],
             "events": [["name": event.name, "data": event_data]],
-            "virtualBrowser": VirtualBrowser(height: screenInfo.height,
-                                             width: screenInfo.width,
-                                             timezone: TimeZone.current.identifier,
-                                             language: Locale.preferredLanguages.joined(separator: ","))
+            "virtualBrowser": VirtualBrowserData(height: screenInfo.height,
+                                                 width: screenInfo.width,
+                                                 timezone: TimeZone.current.identifier,
+                                                 language: Locale.preferredLanguages.joined(separator: ","),
+                                                 page: instance.config.virtualBrowser.page)
         ]
         
-        var jsonString: String?
+        let jsonString: String
         do {
             jsonString = try JSON.convertToJSONString(sstData)
         } catch {
@@ -94,16 +95,20 @@ public class Sst {
             let _ = await Sst.sendError(msg: error.localizedDescription, fn: "Sst.trackEvent", errorName: "SerializationError")
             return nil
         }
-        let url = instance.getURL(params: event.parameters)
-        do {
-            let statusCode = try await HTTP.sendHttpPost(userAgent: instance.userAgent,
-                                                     url: url,
-                                                     jsonString: jsonString!,
-                                                     debug: instance.config.debug)
-            return TrackEventResult(url: url.absoluteString, requestBody: jsonString!, statusCode: statusCode, userAgent: instance.userAgent)
-        } catch {
-            log.error("NetworkError: \(error, privacy: .public)")
-            let _ = await Sst.sendError(msg: error.localizedDescription, fn: "Sst.trackEvent", errorName: "NetworkError")
+        if let url = instance.getURL(params: event.parameters) {
+            do {
+                let statusCode = try await HTTP.sendHttpPost(userAgent: instance.getUA(),
+                                                             url: url,
+                                                             jsonString: jsonString,
+                                                             debug: instance.config.debug)
+                return TrackEventResult(url: url.absoluteString, requestBody: jsonString, statusCode: statusCode, userAgent: instance.getUA())
+            } catch {
+                log.error("NetworkError: \(error, privacy: .public)")
+                let _ = await Sst.sendError(msg: error.localizedDescription, fn: "Sst.trackEvent", errorName: "NetworkError")
+                return nil
+            }
+        } else {
+            log.warning("URLComponents returned no URL for given event data")
             return nil
         }
     }
@@ -132,7 +137,13 @@ public class Sst {
             URLQueryItem(name: "publishPath", value: truncate(instance.config.publishPath, 256)),
             URLQueryItem(name: "errorName", value: truncate(errorName, 256))
         ]
-        return await HTTP.sendError(userAgent: instance.userAgent, url: components.url!, referrer: instance.getURL().absoluteString)
+        if let url = components.url,
+           let referrer = instance.getURL()?.absoluteString {
+            return await HTTP.sendError(userAgent: instance.getUA(), url: url, referrer: referrer)
+        } else {
+            log.warning("URLComponents returned no URL for given referrer or error data")
+            return false
+        }
     }
     
     static func truncate(_ value: String, _ maxLength: Int) -> String {
@@ -150,12 +161,16 @@ public class Sst {
         }
     }
     
-    func getURL(params:[String: String] = [:]) -> URL {
+    func getURL(params:[String: String] = [:]) -> URL? {
         var components = URLComponents()
         components.scheme = "https"
         components.host = config.domain
         components.path = "/pc/\(config.clientName)/sst"
         components.queryItems = getParams(params: params)
-        return components.url!
+        return components.url
+    }
+    
+    func getUA() -> String? {
+        return self.config.virtualBrowser.userAgent ?? self.userAgent
     }
 }

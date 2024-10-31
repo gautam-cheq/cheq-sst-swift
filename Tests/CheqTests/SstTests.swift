@@ -8,7 +8,7 @@ final class SstTests: XCTestCase {
         Sst.clearCheqUuid()
     }
     
-    #if os(visionOS)
+#if os(visionOS)
     func testVisionPro() async {
         guard let result = await Sst._trackEvent(Event("testVisionPro")) else {
             XCTFail("Failed to get valid response")
@@ -17,7 +17,7 @@ final class SstTests: XCTestCase {
         let requestDict = decodeJSON(result.requestBody)
         verifyRequest(requestDict, eventName: "testVisionPro", orientation: "Vision")
     }
-    #endif
+#endif
     
     func testConfigureInvalidDomain() {
         Sst.configure(Config("test", domain: "a b"))
@@ -141,7 +141,34 @@ final class SstTests: XCTestCase {
         XCTAssertEqual("abcdefg...", Sst.truncate("abcdefghijk", 10));
     }
     
-    func verifyRequest(_ requestDict:[String: Any], eventName: String, date: Date? = nil, orientation: String? = nil) {
+    func testVirtualBrowerPage() async {
+        let url = "https://foo.com"
+        Sst.configure(Config("test", virtualBrowser: VirtualBrowser(url)))
+        guard let result = await Sst._trackEvent(Event("testVirtualBrowerPage")) else {
+            XCTFail("Failed to get valid response")
+            return
+        }
+        let requestDict = decodeJSON(result.requestBody)
+        verifyRequest(requestDict, eventName: "testVirtualBrowerPage", pageUrl: url)
+    }
+    
+    func testVirtualPageUserAgent() async {
+        let userAgent = "foo"
+        Sst.configure(Config("test", virtualBrowser: VirtualBrowser(userAgent: userAgent)))
+        guard let result = await Sst._trackEvent(Event("testVirtualPageUserAgent")) else {
+            XCTFail("Failed to get valid response")
+            return
+        }
+        let requestDict = decodeJSON(result.requestBody)
+        verifyRequest(requestDict, eventName: "testVirtualPageUserAgent")
+        XCTAssertEqual(userAgent, result.userAgent)
+    }
+    
+    func verifyRequest(_ requestDict:[String: Any],
+                       eventName: String,
+                       date: Date? = nil,
+                       orientation: String? = nil,
+                       pageUrl: String? = nil) {
         let dataLayer = requestDict["dataLayer"] as! [String: Any]
         XCTAssertNotNil(dataLayer, "missing dataLayer")
         let mobileData = dataLayer["__mobileData"] as! [String: Any]
@@ -197,6 +224,9 @@ final class SstTests: XCTestCase {
         XCTAssertNotNil(virtualBrowser["width"])
         XCTAssertNotNil(virtualBrowser["language"])
         XCTAssertNotNil(virtualBrowser["timezone"])
+        if let pageUrl = pageUrl {
+            XCTAssertEqual(pageUrl, virtualBrowser["page"] as! String, "invalid virtualBrowserPage")
+        }
     }
     
     func decodeJSON(_ result: String) -> [String: Any] {
