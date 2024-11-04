@@ -35,9 +35,11 @@ public struct Config {
     let nexusHost: String
     let publishPath: String
     let dataLayerName: String
+    let virtualBrowser: VirtualBrowser
     let models: Models
     let debug: Bool
     let dateProvider: DateProvider
+    let screenEnabled: Bool
     
     
     /// Creates an SST Configuration
@@ -47,7 +49,8 @@ public struct Config {
     ///   - nexusHost: optional alternative domain for loading tags, default `nexus.ensighten.com`
     ///   - publishPath: optional publish path, default `sst`
     ///   - dataLayerName: optional data layer name, default `digitalData`
-    ///   - models: optional custom models, default ``Models``
+    ///   - virtualBrowser: optional ``VirtualBrowser``
+    ///   - models: optional custom models, default ``Models/default()``
     ///   - debug: optional flag to enable debug logging, default `false`
     ///   - dateProvider: optional date provider, default ``SystemDateProvider``
     public init(_ clientName: String,
@@ -55,7 +58,8 @@ public struct Config {
                 nexusHost: String = "nexus.ensighten.com",
                 publishPath: String = "sst",
                 dataLayerName: String = "digitalData",
-                models: Models = try! Models(),
+                virtualBrowser: VirtualBrowser = VirtualBrowser(),
+                models: Models = try! Models.default(),
                 debug: Bool = false,
                 dateProvider: DateProvider = SystemDateProvider()) {
         self.clientName = clientName
@@ -63,17 +67,35 @@ public struct Config {
         self.nexusHost = nexusHost
         self.publishPath = publishPath
         self.dataLayerName = dataLayerName
+        self.virtualBrowser = virtualBrowser
         self.models = models
         self.debug = debug
         self.dateProvider = dateProvider
+        self.screenEnabled = (models.get(DeviceModel.self))?.config.screenEnabled == true
     }
 }
 
-struct VirtualBrowser: Codable {
-    let height: Int
-    let width: Int
+/// SST Virtual Browser Configuration
+public struct VirtualBrowser {
+    let page: String?
+    let userAgent: String?
+    
+    /// Creates an SST Virtual Browser Configuration
+    /// - Parameters:
+    ///   - page: The URL of the page to be loaded in the virtual browser
+    ///   - userAgent: The user agent string to be used by the virtual browser
+    public init(_ page:String? = nil, userAgent: String? = nil) {
+        self.page = page
+        self.userAgent = userAgent
+    }
+}
+
+struct VirtualBrowserData: Codable {
+    let height: Int?
+    let width: Int?
     let timezone: String
     let language: String
+    let page: String?
 }
 
 struct Settings: Codable {

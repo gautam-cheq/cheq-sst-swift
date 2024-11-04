@@ -4,7 +4,7 @@ import UIKit
 enum Info {
     
     static let library_name = "cheq-sst-swift"
-    static let library_version = "0.2.0"
+    static let library_version = "0.2.1"
     
     static var cpuArchitecture: String = {
 #if arch(x86_64)
@@ -45,20 +45,31 @@ enum Info {
         }
     }()
     
-    static func gatherDeviceData() -> [String: Any] {
+    static func gatherDeviceData(_ config:DeviceModelConfig) -> [String: Any] {
         let device = UIDevice.current
         
-        return [
+        var result: [String: Any] = [
             "manufacturer": "Apple",
-            "os": [
-                "name": device.systemName,
-                "version": device.systemVersion
-            ],
             "model": appleModel,
-            "id": device.identifierForVendor?.uuidString ?? "Unknown",
-            "screen": getScreenInfo(),
             "architecture": cpuArchitecture
         ]
+        
+        if config.osEnabled {
+            result["os"] = [
+                "name": device.systemName,
+                "version": device.systemVersion
+            ]
+        }
+        
+        if config.idEnabled {
+            result["id"] = device.identifierForVendor?.uuidString ?? "Unknown"
+        }
+        
+        if config.screenEnabled {
+            result["screen"] = getScreenInfo()
+        }
+        
+        return result
     }
     
     static func getScreenInfo() -> ScreenInfo {
@@ -91,7 +102,7 @@ enum Info {
             orientation = "Unknown"
         }
         height = Int(bounds.height)
-        width = Int(bounds.width)  
+        width = Int(bounds.width)
 #endif
         return ScreenInfo(orientation: orientation, height: height, width: width)
     }

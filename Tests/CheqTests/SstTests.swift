@@ -8,16 +8,18 @@ final class SstTests: XCTestCase {
         Sst.clearCheqUuid()
     }
     
-    #if os(visionOS)
+#if os(visionOS)
     func testVisionPro() async {
+        let config = Config("test")
+        Sst.configure(config)
         guard let result = await Sst._trackEvent(Event("testVisionPro")) else {
             XCTFail("Failed to get valid response")
             return
         }
         let requestDict = decodeJSON(result.requestBody)
-        verifyRequest(requestDict, eventName: "testVisionPro", orientation: "Vision")
+        verifyRequest(requestDict, eventName: "testVisionPro", orientation: "Vision", config: config)
     }
-    #endif
+#endif
     
     func testConfigureInvalidDomain() {
         Sst.configure(Config("test", domain: "a b"))
@@ -40,7 +42,8 @@ final class SstTests: XCTestCase {
     
     func testTrackEvent() async throws {
         let date = Date(timeIntervalSince1970: 1337)
-        Sst.configure(Config("di_demo", domain: "echo.cheqai.workers.dev", debug: true, dateProvider: StaticDateProvider(fixedDate: date)))
+        let config = Config("di_demo", domain: "echo.cheqai.workers.dev", debug: true, dateProvider: StaticDateProvider(fixedDate: date))
+        Sst.configure(config)
         let eventName = "testTrackEvent"
         let customData = CustomData(custom_data: [:],
                                     event_name: "PageView",event_id: "0b11049b2-8afc-4156-9b69-342c692309210",
@@ -59,7 +62,7 @@ final class SstTests: XCTestCase {
             return
         }
         let requestDict = decodeJSON(result.requestBody)
-        verifyRequest(requestDict, eventName: eventName, date: date)
+        verifyRequest(requestDict, eventName: eventName, date: date, config: config)
         let expectedUrl = "https://echo.cheqai.workers.dev/pc/di_demo/sst?foo=bar&sstOrigin=mobile&sstVersion=1.0.0&test%20foo=true%261337%20baz%3D"
         XCTAssertEqual(expectedUrl, result.url, "invalid url")
         XCTAssertNotNil(result.userAgent)
@@ -68,16 +71,17 @@ final class SstTests: XCTestCase {
     
     func testCustomModel() async throws {
         let foo = Foo()
-        let models = try Models(foo)
+        let models = try Models.default().add(foo)
         let date = Date(timeIntervalSince1970: 2375623857)
-        Sst.configure(Config("di_demo", models: models, dateProvider: StaticDateProvider(fixedDate: date)))
+        let config = Config("di_demo", models: models, dateProvider: StaticDateProvider(fixedDate: date))
+        Sst.configure(config)
         guard let result = await Sst._trackEvent(Event("testCustomModel")) else {
             XCTFail("Failed to get valid response")
             return
         }
         
         let requestDict = decodeJSON(result.requestBody)
-        verifyRequest(requestDict, eventName: "testCustomModel", date: date)
+        verifyRequest(requestDict, eventName: "testCustomModel", date: date, config: config)
         let fooValue = ((requestDict["dataLayer"] as! [String: Any])["__mobileData"] as! [String: Any])["foo"] as! String
         XCTAssertEqual("hello", fooValue)
         let library = ((requestDict["dataLayer"] as! [String: Any])["__mobileData"] as! [String: Any])["library"] as! [String: Any]
@@ -87,13 +91,14 @@ final class SstTests: XCTestCase {
     }
     
     func testOverwriteTimestamp() async throws {
-        Sst.configure(Config("test"))
+        let config = Config("test")
+        Sst.configure(config)
         guard let result = await Sst._trackEvent(Event("testOverwriteTimestamp", data: ["__timestamp": "foo"])) else {
             XCTFail("Failed to get valid response")
             return
         }
         let requestDict = decodeJSON(result.requestBody)
-        verifyRequest(requestDict, eventName: "testOverwriteTimestamp")
+        verifyRequest(requestDict, eventName: "testOverwriteTimestamp", config: config)
         let timestamp = ((requestDict["events"] as! [[String: Any]])[0]["data"] as! [String: Any])["__timestamp"] as! String
         XCTAssertEqual("foo", timestamp, "invalid overwritten timestamp")
     }
@@ -101,13 +106,14 @@ final class SstTests: XCTestCase {
     func testDataLayer() async throws {
         Sst.dataLayer.add(key: "card", value: PlayingCard(rank: Rank.queen, suit: Suit.hearts))
         Sst.dataLayer.add(key: "optedIn", value: false)
-        Sst.configure(Config("test", dataLayerName: "DATA"))
+        let config = Config("test", dataLayerName: "DATA")
+        Sst.configure(config)
         guard let result = await Sst._trackEvent(Event("testDataLayer", data: ["__timestamp": "foo"])) else {
             XCTFail("Failed to get valid response")
             return
         }
         let requestDict = decodeJSON(result.requestBody)
-        verifyRequest(requestDict, eventName: "testDataLayer")
+        verifyRequest(requestDict, eventName: "testDataLayer", config: config)
         let DATADict = (requestDict["dataLayer"] as! [String: Any])["DATA"] as! [String: Any]
         XCTAssertFalse(DATADict["optedIn"] as! Bool)
     }
@@ -141,7 +147,57 @@ final class SstTests: XCTestCase {
         XCTAssertEqual("abcdefg...", Sst.truncate("abcdefghijk", 10));
     }
     
-    func verifyRequest(_ requestDict:[String: Any], eventName: String, date: Date? = nil, orientation: String? = nil) {
+    func testVirtualBrowerPage() async {
+        let config = Config("test", virtualBrowser: VirtualBrowser("https://foo.com"))
+        Sst.configure(config)
+        guard let result = await Sst._trackEvent(Event("testVirtualBrowerPage")) else {
+            XCTFail("Failed to get valid response")
+            return
+        }
+        let requestDict = decodeJSON(result.requestBody)
+        verifyRequest(requestDict, eventName: "testVirtualBrowerPage", config: config)
+    }
+    
+    func testVirtualPageUserAgent() async {
+        let userAgent = "foo"
+        let config = Config("test", virtualBrowser: VirtualBrowser(userAgent: userAgent))
+        Sst.configure(config)
+        guard let result = await Sst._trackEvent(Event("testVirtualPageUserAgent")) else {
+            XCTFail("Failed to get valid response")
+            return
+        }
+        let requestDict = decodeJSON(result.requestBody)
+        verifyRequest(requestDict, eventName: "testVirtualPageUserAgent", config: config)
+        XCTAssertEqual(userAgent, result.userAgent)
+    }
+    
+    func testRequiredModels() async {
+        let config = Config("test", models: try! Models.required(), debug: true)
+        Sst.configure(config)
+        guard let result = await Sst._trackEvent(Event("testRequiredModels")) else {
+            XCTFail("Failed to get valid response")
+            return
+        }
+        let requestDict = decodeJSON(result.requestBody)
+        verifyRequest(requestDict, eventName: "testRequiredModels", config: config)
+    }
+    
+    func testDeviceModelConfig() async {
+        let config = Config("test", models: try! Models.required().add(DeviceModel.custom().disableScreen().disableOs().create()), debug: true)
+        Sst.configure(config)
+        guard let result = await Sst._trackEvent(Event("testDeviceModelConfig")) else {
+            XCTFail("Failed to get valid response")
+            return
+        }
+        let requestDict = decodeJSON(result.requestBody)
+        verifyRequest(requestDict, eventName: "testDeviceModelConfig", config: config)
+    }
+    
+    func verifyRequest(_ requestDict:[String: Any],
+                       eventName: String,
+                       date: Date? = nil,
+                       orientation: String? = nil,
+                       config:Config) {
         let dataLayer = requestDict["dataLayer"] as! [String: Any]
         XCTAssertNotNil(dataLayer, "missing dataLayer")
         let mobileData = dataLayer["__mobileData"] as! [String: Any]
@@ -152,24 +208,35 @@ final class SstTests: XCTestCase {
         XCTAssertNotNil(app["name"])
         XCTAssertNotNil(app["namespace"])
         XCTAssertNotNil(app["version"])
-        let device = mobileData["device"] as! [String: Any]
-        XCTAssertNotNil(device, "missing dataLayer.__mobileData.device")
-        let screen = device["screen"] as! [String: Any]
-        XCTAssertNotNil(screen)
-        XCTAssertNotNil(screen["orientation"])
-        if let orientation = orientation {
-            XCTAssertEqual(orientation, screen["orientation"] as! String)
+        if config.models.get(DeviceModel.self) != nil {
+            let device = mobileData["device"] as! [String: Any]
+            XCTAssertNotNil(device, "missing dataLayer.__mobileData.device")
+            if config.models.get(DeviceModel.self)?.config.screenEnabled == true {
+                let screen = device["screen"] as! [String: Any]
+                XCTAssertNotNil(screen)
+                XCTAssertNotNil(screen["orientation"])
+                if let orientation = orientation {
+                    XCTAssertEqual(orientation, screen["orientation"] as! String)
+                }
+                XCTAssertNotNil(screen["width"])
+                XCTAssertNotNil(screen["height"])
+            }
+            
+            if config.models.get(DeviceModel.self)?.config.idEnabled == true {
+                XCTAssertNotNil(device["id"])
+            }
+            
+            XCTAssertNotNil(device["manufacturer"])
+            XCTAssertNotNil(device["architecture"])
+            XCTAssertNotNil(device["model"])
+            if config.models.get(DeviceModel.self)?.config.osEnabled == true {
+                let os = device["os"] as! [String: Any]
+                XCTAssertNotNil(os)
+                XCTAssertNotNil(os["name"])
+                XCTAssertNotNil(os["version"])
+            }
         }
-        XCTAssertNotNil(screen["width"])
-        XCTAssertNotNil(screen["height"])
-        XCTAssertNotNil(device["id"])
-        XCTAssertNotNil(device["manufacturer"])
-        XCTAssertNotNil(device["architecture"])
-        XCTAssertNotNil(device["model"])
-        let os = device["os"] as! [String: Any]
-        XCTAssertNotNil(os)
-        XCTAssertNotNil(os["name"])
-        XCTAssertNotNil(os["version"])
+        
         let library = mobileData["library"] as! [String: Any]
         XCTAssertNotNil(library, "missing dataLayer.__mobileData.library")
         XCTAssertNotNil(library["name"])
@@ -193,10 +260,15 @@ final class SstTests: XCTestCase {
         
         let virtualBrowser = requestDict["virtualBrowser"] as! [String: Any]
         XCTAssertNotNil(virtualBrowser, "missing virtualBrowser")
-        XCTAssertNotNil(virtualBrowser["height"])
-        XCTAssertNotNil(virtualBrowser["width"])
+        if config.models.get(DeviceModel.self)?.config.screenEnabled == true {
+            XCTAssertNotNil(virtualBrowser["height"])
+            XCTAssertNotNil(virtualBrowser["width"])
+        }
         XCTAssertNotNil(virtualBrowser["language"])
         XCTAssertNotNil(virtualBrowser["timezone"])
+        if let pageUrl = config.virtualBrowser.page {
+            XCTAssertEqual(pageUrl, virtualBrowser["page"] as! String, "invalid virtualBrowserPage")
+        }
     }
     
     func decodeJSON(_ result: String) -> [String: Any] {

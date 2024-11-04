@@ -73,8 +73,8 @@ struct HomeView: View {
             NavigationLink(destination: LoginView()) {
                 Text("Go to Login")
             }.padding()
-            NavigationLink(destination: CartView()) {
-                Text("Go to Cart")
+            NavigationLink(destination: ConfigView()) {
+                Text("Go to Config")
             }.padding()
         }
         .onReceive(timer) { _ in
@@ -97,8 +97,8 @@ struct LoginView: View {
             NavigationLink(destination: HomeView()) {
                 Text("Go to Home")
             }.padding()
-            NavigationLink(destination: CartView()) {
-                Text("Go to Cart")
+            NavigationLink(destination: ConfigView()) {
+                Text("Go to Config")
             }.padding()
         }
         .onAppear {
@@ -109,22 +109,30 @@ struct LoginView: View {
     }
 }
 
-struct CartView: View {
+struct ConfigView: View {
     var body: some View {
         VStack {
-            Text("Cart Screen")
+            Text("Config Screen")
                 .font(.title)
                 .padding()
-            NavigationLink(destination: HomeView()) {
-                Text("Go to Home")
+            Button("Empty UA and Minimal Device Model") {
+                Sst.configure(Config("mobile_demo",
+                                     virtualBrowser: VirtualBrowser(userAgent: ""),
+                                     models: try! Models.required().add(DeviceModel.custom().disableId().disableOs().disableScreen().create(),
+                                                                        Static(),
+                                                                        CheqAdvertisingModel()),
+                                     debug: true))
+            }.padding()
+            Button("Reset Demo Config") {
+                SimpleSwiftUIApp.initializeSst()
             }.padding()
             NavigationLink(destination: LoginView()) {
-                Text("Go to Login")
+                Text("Go to Home")
             }.padding()
         }
         .onAppear {
             Task {
-                await Sst.trackEvent(Event("screen_view", data: ["screen_name": "Cart"]))
+                await Sst.trackEvent(Event("screen_view", data: ["screen_name": "Config"]))
             }
         }
     }
