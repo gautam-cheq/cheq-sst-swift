@@ -1,6 +1,6 @@
 Pod::Spec.new do |spec|
     spec.name         = "Cheq"
-    spec.version      = "1.0.0"
+    spec.version      = "0.2.1"
     spec.summary      = "CHEQ Swift Server-Side Tagging (SST)"
     spec.description  = "CHEQ Swift Server-Side Tagging (SST)"
     spec.homepage     = "https://github.com/cheq-ai/cheq-sst-swift"
