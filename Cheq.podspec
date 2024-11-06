@@ -10,5 +10,5 @@ Pod::Spec.new do |spec|
     spec.source       = { :git => "https://github.com/gautam-cheq/cheq-sst-swift.git", :tag => "#{spec.version}" }
     spec.source_files = "Sources/**/*.swift"
     spec.swift_version = "5.0"
-    spec.pod_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => '' }
+    spec.pod_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'foo' }
   end
